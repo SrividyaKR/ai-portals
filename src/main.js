@@ -45,6 +45,7 @@ async function boot() {
     tour: journey ? journey.tour.slice() : readTour(q, defs),   // a journey link's worlds (?tour=id1,id2,...), flown in that order before the picker takes over; its first is the opening world (readTour puts it in ?start=)
     fixedSeed: q.has('seed') ? num('seed') : undefined,
     freeze, single: !!only && !q.has('loop') ? true : false,
+    tourEnd: q.has('end') && q.get('end') !== '0',   // with ?tour=: the flight ends on the tour's last world instead of going on to others
     pixelRatio: q.has('pr') ? num('pr') : undefined,
     safeMath: q.get('safe') || undefined,
     maxDt: q.has('maxdt') ? num('maxdt') : undefined,

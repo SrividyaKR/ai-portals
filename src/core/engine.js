@@ -499,7 +499,9 @@ export class Engine {
   }
   _queueNext(def) {
     // a shared tour's worlds come first, in their order (opts.tour); then the world after this one in a made series; then the picker chooses
-    def = def || tourNext(this) || seriesNext(this) || this._pick();
+    // (?tour=...&end=1, opts.tourEnd: when the tour is over nothing more is queued, and the last world holds at its portal)
+    def = def || tourNext(this) || (this.opts.tourEnd && this.opts.tour ? null : seriesNext(this) || this._pick());
+    if (!def) return;
     this._complete(def);
     const n = (this.visits[def.id] = (this.visits[def.id] || 0) + 1);
     const seed = this.opts.fixedSeed ?? hashSeed(this.session + ':' + def.id + ':' + n);
