@@ -46,6 +46,24 @@ const startMusic = () => { music.currentTime = 0; music.play().catch(() => {}); 
 go.onclick = () => {
   music.play().then(() => { music.pause(); music.currentTime = 0; }).catch(() => {});
   const f = document.createElement('iframe'); f.allow = 'autoplay; fullscreen'; f.src = '../?tour=' + tour + '&end=1&seed=7'; box.appendChild(f);
+  // only Sri's soundtrack plays here: the engine's sound button (and its S key) mute and unmute that soundtrack instead,
+  // and the engine's own sound is switched off for good should it ever have started
+  let wired = null;
+  const muteToggle = () => { music.muted = !music.muted; showSound(); };
+  const showSound = () => { try { const b = f.contentWindow.document.getElementById('b-sound'); if (b) { b.classList.toggle('on', !music.muted); b.setAttribute('aria-label', music.muted ? 'Sound on' : 'Sound off'); } } catch (x) {} };
+  setInterval(() => {
+    try {
+      const w = f.contentWindow, b = w.document.getElementById('b-sound');
+      if (b && wired !== b) {
+        wired = b;
+        b.addEventListener('click', (e) => { e.stopImmediatePropagation(); e.preventDefault(); muteToggle(); }, true);
+        w.addEventListener('keydown', (e) => { if (e.key === 's' || e.key === 'S') { e.stopImmediatePropagation(); muteToggle(); } }, true);
+      }
+      const a = w.__audio;
+      if (a && !a.silenced) { if (a.toggle()) a.toggle(); a.toggle = () => false; a.silenced = true; }
+      showSound();
+    } catch (x) { /* not ready yet */ }
+  }, 300);
   document.getElementById('start').remove();
   const L = document.createElement('div'); L.id = 'load'; L.innerHTML = '<div>Building the first world. This takes about half a minute.</div><div id="bar"><i></i></div><div id="ls">0 s</div>'; box.appendChild(L);
   const t0 = Date.now(), iv = setInterval(() => {
