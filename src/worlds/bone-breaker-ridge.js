@@ -41,7 +41,7 @@ export default {
     // terrain: meadow, then strata rock, then snow; sun from the left bakes light and blue shadow
     const cA = new THREE.Color('#6f8148'), cB = new THREE.Color('#a8a06a'), cR = new THREE.Color('#8e7f74'), cR2 = new THREE.Color('#6e6258'), cS = new THREE.Color('#f4f8ff'), sh = new THREE.Color('#4f5f90'), tmp = new THREE.Color();
     const terr = makeTerrain({
-      size: 1500, seg: 340, cx: 0, cz: -200, heightFn: hLand, own, sun: [-0.6, 0.5, -0.25],
+      size: 1500, seg: 450, cx: 0, cz: -200, heightFn: hLand, own, sun: [-0.6, 0.5, -0.25],
       colorFn: (h, lit, slope, x, z, out) => {
         out.copy(cA).lerp(cB, smoothstep(60, 180, h + 30 * fbm(x * 0.02, z * 0.02, 2)));
         const rock = smoothstep(0.1, 0.35, slope) + smoothstep(170, 300, h); tmp.copy(cR).lerp(cR2, 0.5 + 0.5 * Math.sin(h * 0.33 + fbm(x * 0.05, z * 0.05, 2) * 6)); out.lerp(tmp, Math.min(1, rock));
@@ -52,7 +52,9 @@ export default {
     {   // fine rock/grass blotches tiled over the whole slope, so close terrain has grain instead of smooth colour
       const c = mkCanvas(256), g = c.getContext('2d'); g.fillStyle = '#d8d8d8'; g.fillRect(0, 0, 256, 256);
       for (let i = 0; i < 900; i++) { const x = R.range(0, 256), y = R.range(0, 256), r = R.range(1.5, 9), v = R.range(70, 255) | 0; g.fillStyle = `rgba(${v},${v},${v},${R.range(0.2, 0.55)})`; for (const ox of [-256, 0, 256]) for (const oy of [-256, 0, 256]) { g.beginPath(); g.arc(x + ox, y + oy, r, 0, 6.2832); g.fill(); } }
-      const tx = own(new THREE.CanvasTexture(c)); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(220, 220); tx.anisotropy = 8; terr.material.map = tx; terr.material.needsUpdate = true;
+      for (let i = 0; i < 2600; i++) { const v = R() < 0.5 ? 40 : 255; g.fillStyle = `rgba(${v},${v},${v},${R.range(0.25, 0.6)})`; g.fillRect(R.range(0, 256), R.range(0, 256), R.range(0.8, 2.2), R.range(0.8, 2.2)); }
+      for (let i = 0; i < 300; i++) { g.strokeStyle = `rgba(30,30,30,${R.range(0.25, 0.55)})`; g.lineWidth = R.range(0.6, 1.4); const x = R.range(0, 256), y = R.range(0, 256), a = R.range(0, 6.28), L = R.range(4, 16); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L); g.stroke(); }
+      const tx = own(new THREE.CanvasTexture(c)); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(260, 260); tx.anisotropy = 8; terr.material.map = tx; terr.material.needsUpdate = true;
     }
     scene.add(terr); await tick();
     // the knoll of bones: ribs, long bones, skulls
@@ -69,6 +71,25 @@ export default {
     const boG = own(new THREE.IcosahedronGeometry(1, 1)), bo = new THREE.InstancedMesh(boG, own(new THREE.MeshBasicMaterial({ color: '#8c8478' })), 60);
     for (let i = 0; i < 60; i++) { const a = R.range(0, 6.28), d = R.range(5, 44), x = IMP.x + Math.cos(a) * d, z = IMP.z + Math.sin(a) * d, sc = R.range(0.6, 3.2); _p.set(x, hLand(x, z) + sc * 0.3, z); _q.setFromEuler(_e.set(R(), R(), R())); _s.set(sc * 1.4, sc * 0.8, sc); bo.setMatrixAt(i, _m.compose(_p, _q, _s)); }
     bo.frustumCulled = false; scene.add(bo); await tick();
+    // ---- the living valley: pine woods on the lower slopes, a stream, grazing sheep, drifting mist, and other vultures wheeling far off ----
+    const SUNV = new THREE.Vector3(-0.6, 0.5, -0.25).normalize(), _col = new THREE.Color();
+    const riverX = (z) => 6 * Math.sin(z * 0.004) - 52 * smoothstep(-450, -560, z);
+    { const pos = [], col = []; for (const [g2, y0, k0, k1] of [[new THREE.ConeGeometry(1, 1.3, 7), 0.65, 0.5, 0.85], [new THREE.ConeGeometry(0.72, 1.1, 7), 1.35, 0.75, 1.0], [new THREE.ConeGeometry(0.42, 0.9, 7), 1.95, 0.9, 1.15]]) { g2.translate(0, y0, 0); const ni = g2.toNonIndexed(), pa = ni.attributes.position; for (let i = 0; i < pa.count; i++) { pos.push(pa.getX(i), pa.getY(i), pa.getZ(i)); const k = lerp(k0, k1, (pa.getY(i) - y0 + 0.6) / 1.2); col.push(k, k, k); } }
+      const tg2 = own(new THREE.BufferGeometry()); tg2.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); tg2.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      const PN = 5200, pines = new THREE.InstancedMesh(tg2, own(new THREE.MeshBasicMaterial({ vertexColors: true })), PN); pines.frustumCulled = false; let pn = 0, tries = 0;
+      while (pn < PN && tries++ < 60000) { const z = R.range(250, -900), x = (R() < 0.5 ? -1 : 1) * R.range(62, 520), h = hLand(x, z); if (h > 250 || fbm(x * 0.006 + 9, z * 0.006, 3) < 0.44) continue; const e = 6, hx = hLand(x + e, z) - hLand(x - e, z), hz = hLand(x, z + e) - hLand(x, z - e), l = Math.hypot(hx, 2 * e, hz); if (1 - 2 * e / l > 0.42) continue; const lit = Math.max(0, (-hx * SUNV.x + 2 * e * SUNV.y - hz * SUNV.z) / l), sc = R.range(4.5, 9); _p.set(x, h - 0.5, z); _q.setFromEuler(_e.set(0, R.range(0, 6.28), 0)); _s.set(sc * R.range(0.8, 1.1), sc * R.range(0.9, 1.4), sc * R.range(0.8, 1.1)); pines.setMatrixAt(pn, _m.compose(_p, _q, _s)); pines.setColorAt(pn++, _col.set(['#2f4a2c', '#3a5630', '#27402c', '#44603a'][R.int(0, 3)]).multiplyScalar(0.5 + 0.95 * lit)); }
+      pines.count = pn; scene.add(pines);
+      const bN = 700, rocks = new THREE.InstancedMesh(boG, own(new THREE.MeshBasicMaterial({ color: '#ffffff' })), bN); rocks.frustumCulled = false; for (let i = 0; i < bN; i++) { const z = R.range(200, -900), x = (R() < 0.5 ? -1 : 1) * R.range(14, 300), sc = R.range(0.5, 2.3); _p.set(x, hLand(x, z) + sc * 0.15, z); _q.setFromEuler(_e.set(R(), R() * 6, R())); _s.set(sc * 1.4, sc * 0.8, sc); rocks.setMatrixAt(i, _m.compose(_p, _q, _s)); rocks.setColorAt(i, _col.set(['#7a7268', '#6a6258', '#8a8278'][R.int(0, 2)]).multiplyScalar(R.range(0.7, 1.05))); } scene.add(rocks); }
+    const rvC = mkCanvas(128); { const g = rvC.getContext('2d'); g.fillStyle = '#7fa8cc'; g.fillRect(0, 0, 128, 128); for (let i = 0; i < 90; i++) { g.strokeStyle = `rgba(255,255,255,${R.range(0.15, 0.6)})`; g.lineWidth = R.range(1, 3); const x = R.range(0, 128), y = R.range(0, 128), L = R.range(10, 40); for (const oy of [-128, 0, 128]) { g.beginPath(); g.moveTo(x, y + oy); g.quadraticCurveTo(x + R.range(-6, 6), y + oy + L / 2, x + R.range(-3, 3), y + oy + L); g.stroke(); } } }
+    const rvT = own(new THREE.CanvasTexture(rvC)); rvT.wrapS = rvT.wrapT = THREE.RepeatWrapping; rvT.colorSpace = THREE.SRGBColorSpace;
+    { const pos = [], uv = [], idx = [], NS = 520; for (let k = 0; k <= NS; k++) { const z = 240 - k * 2.2, x = riverX(z), w = 3.2 + 1.6 * Math.sin(z * 0.05) + 1.2 * fbm(z * 0.02, 3, 2), y = Math.min(hLand(x - w, z), hLand(x + w, z), hLand(x, z)) + 0.35; pos.push(x - w, y, z, x + w, y, z); uv.push(0, k * 0.18, 1, k * 0.18); if (k < NS) { const a = k * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }
+      const rg2 = own(new THREE.BufferGeometry()); rg2.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); rg2.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); rg2.setIndex(idx); const rv = new THREE.Mesh(rg2, own(new THREE.MeshBasicMaterial({ map: rvT, side: THREE.DoubleSide }))); rv.frustumCulled = false; scene.add(rv); }
+    const SHP = 170, sheep = new THREE.InstancedMesh(own(new THREE.SphereGeometry(1, 8, 6)), own(new THREE.MeshBasicMaterial({ color: '#f2eee2' })), SHP), sheepH = new THREE.InstancedMesh(own(new THREE.SphereGeometry(1, 6, 5)), own(new THREE.MeshBasicMaterial({ color: '#2a2622' })), SHP), shd = []; sheep.frustumCulled = sheepH.frustumCulled = false; scene.add(sheep, sheepH);
+    { const flocks = Array.from({ length: 9 }, (_, k) => { const z = 20 - k * 66 - R.range(0, 30), side = k % 2 ? 1 : -1; return { x: riverX(z) + side * R.range(24, 70), z, dir: R.range(0, 6.28) }; }); for (let i = 0; i < SHP; i++) { const f = flocks[i % 9], a = R.range(0, 6.28), d = 22 * Math.sqrt(R()); shd.push({ x: f.x + Math.cos(a) * d, z: f.z + Math.sin(a) * d * 1.6, dir: f.dir + R.range(-0.5, 0.5), v: R.range(0.25, 0.7), ph: R.range(0, 6.28), sc: R.range(0.55, 0.8) }); } }
+    const mistC = mkCanvas(128); { const g = mistC.getContext('2d'), rg = g.createRadialGradient(64, 64, 4, 64, 64, 62); rg.addColorStop(0, 'rgba(255,255,255,0.85)'); rg.addColorStop(0.5, 'rgba(255,255,255,0.35)'); rg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = rg; g.fillRect(0, 0, 128, 128); }
+    const mistT = own(new THREE.CanvasTexture(mistC)); mistT.colorSpace = THREE.SRGBColorSpace; const mistM = own(new THREE.SpriteMaterial({ map: mistT, color: '#f4f6ff', transparent: true, opacity: 0.2, depthWrite: false })), mists = [];
+    for (let i = 0; i < 44; i++) { const sp = new THREE.Sprite(mistM), z = R.range(100, -950), x = (R() < 0.5 ? -1 : 1) * R.range(130, 520), w = R.range(120, 280); sp.scale.set(w, w * R.range(0.18, 0.3), 1); sp.position.set(x, hLand(x, z) + R.range(25, 80), z); scene.add(sp); mists.push({ sp, x, v: R.range(1.5, 4) * (i % 2 ? 1 : -1) }); }
+    const others = [[-210, 300, -330, 70, 0.22, 0], [240, 340, -520, 95, -0.17, 2], [-120, 380, -700, 60, 0.26, 4]].map(([x, y, z, r, w, ph]) => { const b = makeBird({ body: '#3c3a40', belly: '#c4682e', head: '#efd9b8', wing: '#40434f', feather: '#23242c', scale: 2.4, own, span: 1.0 }); scene.add(b.g); return { b, x, y, z, r, w, ph }; });
     // the hero bone (carried, then dropped), long with knuckled ends
     const hero = new THREE.Mesh(longG, own(new THREE.MeshBasicMaterial({ color: '#fff8ea' }))); scene.add(hero);
     // a white streak of dust behind the falling bone so the eye can follow it
@@ -119,6 +140,11 @@ export default {
 
         const dive = 0, glide = sm(Math.min(1, Math.max(0, (T - 1.8) / 0.5))) * (1 - sm(Math.min(1, Math.max(0, (T - 3.8) / 0.6))));
         bird.pose({ flap: t * 5.4, glide, dive, t }); bird.g.updateMatrixWorld(true);
+        rvT.offset.y = -t * 0.12;
+        for (let i = 0; i < SHP; i++) { const d = shd[i], m = 6 * Math.sin(t * 0.05 * d.v + d.ph), x = d.x + Math.cos(d.dir) * m, z = d.z + Math.sin(d.dir) * m, y = hLand(x, z), yaw = -d.dir + (Math.cos(t * 0.05 * d.v + d.ph) < 0 ? Math.PI : 0); _q.setFromEuler(_e.set(0, yaw, 0)); _p.set(x, y + 0.75 * d.sc, z); _s.set(1.25 * d.sc, 0.85 * d.sc, 0.85 * d.sc); sheep.setMatrixAt(i, _m.compose(_p, _q, _s)); _p.set(x + Math.cos(-yaw) * 1.2 * d.sc, y + 0.95 * d.sc, z + Math.sin(-yaw) * 1.2 * d.sc); _s.setScalar(0.36 * d.sc); sheepH.setMatrixAt(i, _m.compose(_p, _q, _s)); }
+        sheep.instanceMatrix.needsUpdate = sheepH.instanceMatrix.needsUpdate = true;
+        for (const mi of mists) mi.sp.position.x = mi.x + mi.v * t;
+        for (const o of others) { const a = o.ph + t * o.w; o.b.g.position.set(o.x + Math.cos(a) * o.r, o.y + 6 * Math.sin(t * 0.2 + o.ph), o.z + Math.sin(a) * o.r); o.b.g.rotation.set(0, Math.atan2(-Math.sin(a) * o.w, Math.cos(a) * o.w), -0.45 * Math.sign(o.w)); o.b.pose({ flap: 0, glide: 1, t: t + o.ph }); }
         // the hero bone: on the knoll, then in the talons, then tumbling
         if (T < 3.35) { hero.position.set(LED.x - 1, LED.y + 1.2, LED.z + 0.5); hero.scale.set(2.2, 6, 2.2); hero.rotation.set(1.45, 0.6, 0.4); }
         else if (T < REL) { bird.g.localToWorld(_w.set(0, -0.42, 0.15)); hero.position.copy(_w); hero.scale.set(1.3, 4.6, 1.3); hero.rotation.set(Math.PI / 2, bird.g.rotation.y + 1.57, 0); }

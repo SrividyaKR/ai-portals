@@ -5,7 +5,7 @@
 // Flashes are soft and slow (under 1 Hz). The camera moves at constant speed: z = 30 - 5 T.
 import * as THREE from 'three';
 import { smoothstep, lerp } from '../kit/core.js';
-import { sm, mkCanvas, fbm, pathFrom, skyFor } from '../kit/mine.js';
+import { sm, mkCanvas, fbm, pathFrom, skyFor, makeBird } from '../kit/mine.js';
 
 const DUR = 20, V = 5, ZS0 = -30, ZS1 = -45;
 const PXF = (z) => 6.5 * Math.sin(z * 0.045) + 3 * Math.sin(z * 0.11 + 1);
@@ -32,7 +32,12 @@ export default {
     // trees: trunks, high canopy blobs, ferns; nothing within 4.5 m of the trail
     const base = new THREE.Group(), mirror = new THREE.Group(); mirror.scale.y = -1; scene.add(base, mirror);
     const both = (geo, mat, n) => { const a = new THREE.InstancedMesh(geo, mat, n), b = new THREE.InstancedMesh(geo, mat, n); b.instanceMatrix = a.instanceMatrix; a.frustumCulled = b.frustumCulled = false; base.add(a); mirror.add(b); return a; };
-    const trunkMat = own(new THREE.MeshBasicMaterial({ color: '#ffffff' })), tN = 520, trunks = both(own(new THREE.CylinderGeometry(0.7, 1.0, 30, 7).translate(0, 15, 0)), trunkMat, tN);
+    const bkC = mkCanvas(256); { const g = bkC.getContext('2d'); g.fillStyle = '#8a8a8a'; g.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 220; i++) { const x = R.range(0, 256), w = R.range(2, 8), v = R.range(30, 120) | 0; g.fillStyle = `rgba(${v},${v},${v},${R.range(0.3, 0.75)})`; g.fillRect(x, R.range(-40, 200), w, R.range(40, 256)); }
+      for (let i = 0; i < 120; i++) { const v = R.range(170, 255) | 0; g.fillStyle = `rgba(${v},${v},${v},${R.range(0.25, 0.5)})`; g.fillRect(R.range(0, 256), R.range(0, 256), R.range(1, 3), R.range(12, 60)); }
+      for (let i = 0; i < 50; i++) { g.fillStyle = `rgba(190,255,200,${R.range(0.18, 0.45)})`; g.beginPath(); g.ellipse(R.range(0, 256), R.range(0, 256), R.range(6, 26), R.range(4, 14), 0, 0, 6.28); g.fill(); } }
+    const bkT = own(new THREE.CanvasTexture(bkC)); bkT.wrapS = bkT.wrapT = THREE.RepeatWrapping; bkT.repeat.set(3, 7); bkT.anisotropy = 8;
+    const trunkMat = own(new THREE.MeshBasicMaterial({ color: '#ffffff', map: bkT })), tN = 520, trunks = both(own(new THREE.CylinderGeometry(0.7, 1.0, 30, 12).translate(0, 15, 0)), trunkMat, tN);
     const clear = (x, z, r) => Math.abs(x - PXF(z)) > r;
     for (let i = 0; i < tN; i++) { let x, z; do { z = R.range(60, -150); x = PXF(z) + (R() < 0.5 ? -1 : 1) * R.range(2, 75); } while (!clear(x, z, 5.2) || (z < ZS0 + 2 && z > ZS1 - 2)); const sc = R.range(0.5, 1.4); _p.set(x, 0, z); _q.setFromEuler(_e.set(R.range(-0.03, 0.03), R.range(0, 6.28), R.range(-0.03, 0.03))); _s.set(sc, R.range(0.8, 1.2), sc); trunks.setMatrixAt(i, _m.compose(_p, _q, _s)); trunks.setColorAt(i, _c.set(['#3a5058', '#2e4850', '#44585a', '#2a3c44'][R.int(0, 3)]).multiplyScalar(R.range(0.8, 1.1))); }
     const cN = 300, canopy = new THREE.InstancedMesh(own(new THREE.SphereGeometry(1, 8, 6)), own(new THREE.MeshBasicMaterial({ color: '#0a1814' })), cN); canopy.frustumCulled = false;
@@ -41,15 +46,18 @@ export default {
     const lt = own(new THREE.CanvasTexture(lc)); lt.colorSpace = THREE.SRGBColorSpace; const fMat = own(new THREE.MeshBasicMaterial({ map: lt, alphaTest: 0.5, side: THREE.DoubleSide, color: '#ffffff' })), fN = 1400, ferns = new THREE.InstancedMesh(own(new THREE.PlaneGeometry(1, 1)), fMat, fN); ferns.frustumCulled = false;
     for (let i = 0; i < fN; i++) { let x, z; do { z = R.range(40, -130); x = PXF(z) + R.range(-30, 30); } while (!clear(x, z, 3.6) || (z < ZS0 + 1 && z > ZS1 - 1)); const sc = R.range(0.9, 2.6); _p.set(x, R.range(0.1, 0.7), z); _q.setFromEuler(_e.set(R.range(-1.1, -0.3), R.range(0, 6.28), R.range(-0.5, 0.5))); _s.set(sc * 1.5, sc, 1); ferns.setMatrixAt(i, _m.compose(_p, _q, _s)); ferns.setColorAt(i, _c.set(['#1a5a44', '#2a6a4a', '#14483c', '#3a7a50'][R.int(0, 3)])); } base.add(ferns);
     // the ground and the stream across the trail
-    const gc = mkCanvas(256), gx = gc.getContext('2d'); gx.fillStyle = '#9a9a9a'; gx.fillRect(0, 0, 256, 256); for (let i = 0; i < 600; i++) { const v = R.range(40, 230) | 0; gx.fillStyle = `rgba(${v},${v},${v},${R.range(0.2, 0.5)})`; gx.beginPath(); gx.arc(R.range(0, 256), R.range(0, 256), R.range(1, 8), 0, 6.28); gx.fill(); }
-    const gt = own(new THREE.CanvasTexture(gc)); gt.wrapS = gt.wrapT = THREE.RepeatWrapping; gt.repeat.set(60, 60); const groundMat = own(new THREE.MeshBasicMaterial({ map: gt, color: '#ffffff' }));
+    const gc = mkCanvas(512), gx = gc.getContext('2d'); gx.fillStyle = '#6e6e6e'; gx.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 1700; i++) { const x = R.range(0, 512), y = R.range(0, 512), a = R.range(0, 6.28), L = R.range(5, 13), v = R.range(70, 215) | 0; for (const ox of [-512, 0, 512]) for (const oy of [-512, 0, 512]) { if (x + ox < -20 || x + ox > 532 || y + oy < -20 || y + oy > 532) continue; gx.save(); gx.translate(x + ox, y + oy); gx.rotate(a); gx.fillStyle = `rgb(${v},${v},${v})`; gx.beginPath(); gx.ellipse(0, 0, L, L * 0.42, 0, 0, 6.28); gx.fill(); gx.strokeStyle = 'rgba(20,20,20,0.5)'; gx.lineWidth = 1; gx.beginPath(); gx.moveTo(-L, 0); gx.lineTo(L, 0); gx.stroke(); gx.restore(); } }
+    for (let i = 0; i < 240; i++) { gx.strokeStyle = `rgba(30,30,30,${R.range(0.5, 0.9)})`; gx.lineWidth = R.range(1, 2.6); const x = R.range(0, 512), y = R.range(0, 512), a = R.range(0, 6.28), L = R.range(14, 44); gx.beginPath(); gx.moveTo(x, y); gx.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L); gx.stroke(); }
+    for (let i = 0; i < 90; i++) { gx.fillStyle = `rgba(200,255,210,${R.range(0.12, 0.3)})`; gx.beginPath(); gx.arc(R.range(0, 512), R.range(0, 512), R.range(8, 30), 0, 6.28); gx.fill(); }
+    const gt = own(new THREE.CanvasTexture(gc)); gt.wrapS = gt.wrapT = THREE.RepeatWrapping; gt.repeat.set(70, 70); gt.anisotropy = 8; const groundMat = own(new THREE.MeshBasicMaterial({ map: gt, color: '#ffffff' }));
     for (const [z0, z1] of [[200, ZS0], [ZS1, -300]]) { const m = new THREE.Mesh(own(new THREE.PlaneGeometry(400, z0 - z1).rotateX(-Math.PI / 2)), groundMat); m.position.set(0, 0, (z0 + z1) / 2); scene.add(m); }
-    const water = new THREE.Mesh(own(new THREE.PlaneGeometry(400, ZS0 - ZS1).rotateX(-Math.PI / 2)), own(new THREE.MeshBasicMaterial({ color: '#050c14', transparent: true, opacity: 0.85, depthWrite: false }))); water.position.set(0, 0.01, (ZS0 + ZS1) / 2); scene.add(water);
+    const water = new THREE.Mesh(own(new THREE.PlaneGeometry(400, ZS0 - ZS1).rotateX(-Math.PI / 2)), own(new THREE.MeshBasicMaterial({ color: '#050c14', transparent: true, opacity: 0.85, depthWrite: false }))); water.position.set(0, 0.01, (ZS0 + ZS1) / 2); water.renderOrder = -1; water.material.opacity = 0.7; scene.add(water);
     // a plank footbridge with rails across the stream, so you cross it rather than walk on the water
     const woodMat = own(new THREE.MeshBasicMaterial({ color: '#ffffff' })), BZ0 = -25.5, BZ1 = -49.5, BNP = Math.round((BZ0 - BZ1) / 0.55);
     const planks = new THREE.InstancedMesh(own(new THREE.BoxGeometry(3.3, 0.12, 0.5)), woodMat, BNP), rails = new THREE.InstancedMesh(own(new THREE.BoxGeometry(0.1, 0.1, 0.62)), woodMat, BNP * 2), posts = new THREE.InstancedMesh(own(new THREE.CylinderGeometry(0.07, 0.07, 1.15, 6)), woodMat, Math.ceil(BNP / 4) * 2 + 2), beams = new THREE.InstancedMesh(own(new THREE.BoxGeometry(0.16, 0.2, 24)), woodMat, 2);
-    { let pi = 0; for (let i = 0; i < BNP; i++) { const z = BZ0 - i * 0.55, dz = 0.5, ang = Math.atan((PXF(z - dz) - PXF(z + dz)) / (2 * dz)) * -1, x = PXF(z), cx = Math.cos(ang), sx = -Math.sin(ang); _q.setFromEuler(_e.set(0, ang, 0)); _p.set(x, 0.42 + R.range(-0.012, 0.012), z); _s.set(1, 1, 1); planks.setMatrixAt(i, _m.compose(_p, _q, _s)); planks.setColorAt(i, _c.set(['#5a4030', '#4a3426', '#684a36'][i % 3]));
-        for (const sd of [-1, 1]) { _p.set(x + sd * 1.55 * cx, 1.15, z + sd * 1.55 * sx); rails.setMatrixAt(i * 2 + (sd > 0 ? 1 : 0), _m.compose(_p, _q, _s)); rails.setColorAt(i * 2 + (sd > 0 ? 1 : 0), _c.set('#4a3426')); if (i % 4 === 0) { _p.set(x + sd * 1.55 * cx, 0.62, z + sd * 1.55 * sx); posts.setMatrixAt(pi, _m.compose(_p, _q, _s)); posts.setColorAt(pi++, _c.set('#3a2a1e')); } } }
+    { let pi = 0; for (let i = 0; i < BNP; i++) { const z = BZ0 - i * 0.55, dz = 0.5, ang = Math.atan((PXF(z - dz) - PXF(z + dz)) / (2 * dz)) * -1, x = PXF(z), cx = Math.cos(ang), sx = -Math.sin(ang); _q.setFromEuler(_e.set(0, ang, 0)); _p.set(x, 0.42 + R.range(-0.012, 0.012), z); _s.set(1, 1, 1); planks.setMatrixAt(i, _m.compose(_p, _q, _s)); planks.setColorAt(i, _c.set(['#b8a890', '#a89880', '#c0b098', '#b0a088'][(i * 7) % 4]).multiplyScalar(R.range(0.9, 1.08)));
+        for (const sd of [-1, 1]) { _p.set(x + sd * 1.55 * cx, 1.15, z + sd * 1.55 * sx); rails.setMatrixAt(i * 2 + (sd > 0 ? 1 : 0), _m.compose(_p, _q, _s)); rails.setColorAt(i * 2 + (sd > 0 ? 1 : 0), _c.set('#b89878')); if (i % 4 === 0) { _p.set(x + sd * 1.55 * cx, 0.62, z + sd * 1.55 * sx); posts.setMatrixAt(pi, _m.compose(_p, _q, _s)); posts.setColorAt(pi++, _c.set('#a08060')); } } }
       posts.count = pi; beams.count = 0; }
     for (const o of [planks, rails, posts]) { o.frustumCulled = false; scene.add(o); }
     // bioluminescent mushrooms along the trail edge, mossy fallen logs, and low drifting mist
@@ -67,6 +75,10 @@ export default {
     const hg = own(new THREE.BufferGeometry()); hg.setAttribute('position', fg.getAttribute('position')); hg.setAttribute('color', new THREE.BufferAttribute(hc, 3));
     const coreM = own(new THREE.PointsMaterial({ map: glowT, size: 0.42, sizeAttenuation: true, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })), haloM = own(new THREE.PointsMaterial({ map: glowT, size: 1.5, sizeAttenuation: true, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
     for (const par of [base, mirror]) { const a = new THREE.Points(fg, coreM), b = new THREE.Points(hg, haloM); a.frustumCulled = b.frustumCulled = false; par.add(a, b); }
+    const RFN = 110, rfp = new Float32Array(RFN * 3), rfc = new Float32Array(RFN * 3), rfz = []; for (let i = 0; i < RFN; i++) { const z = R.range(BZ0, BZ1), sd = i % 2 ? 1 : -1, dz = 0.5, ang = Math.atan((PXF(z - dz) - PXF(z + dz)) / (2 * dz)) * -1; rfp[i * 3] = PXF(z) + sd * 1.55 * Math.cos(ang); rfp[i * 3 + 1] = i % 5 === 0 ? R.range(0.5, 1.05) : 1.23; rfp[i * 3 + 2] = z - sd * 1.55 * Math.sin(ang); rfz.push({ z, rp: R.range(0, 1) }); }
+    const rfg = own(new THREE.BufferGeometry()); rfg.setAttribute('position', new THREE.BufferAttribute(rfp, 3)); rfg.setAttribute('color', new THREE.BufferAttribute(rfc, 3));
+    { const a = new THREE.Points(rfg, coreM), b = new THREE.Points(rfg, coreM); a.frustumCulled = b.frustumCulled = false; base.add(a); mirror.add(b); }
+    const owl = makeBird({ body: '#4a5258', belly: '#7a8280', wing: '#565e62', feather: '#3a4246', head: '#8a928c', beakC: '#b89a50', scale: 2.3, own, span: 1.15, beard: false }); owl.g.visible = false; scene.add(owl.g);
     await tick();
     const camAtU = (u) => camAt(Math.max(0, Math.min(1, u)) * DUR);
     const baseTrunk = new THREE.Color('#ffffff');
@@ -86,7 +98,7 @@ export default {
         const lock = smoothstep(3.5, 12, T), vort = smoothstep(15, 18.5, T), RATE = 0.8;
         // the forest's brightness follows the wave of flashes as it passes the camera
         const wphase = t * RATE + WAVE(cp.z - 12), sync = Math.pow(Math.max(0, Math.sin(6.2832 * wphase)), 4), lit = 0.085 + 0.4 * lock * sync + 0.05 * lock;
-        trunkMat.color.setRGB(lit * 0.9, lit * 1.0, lit * 1.0); woodMat.color.setRGB(lit * 1.3, lit * 1.2, lit * 1.1); { const k = 0.35 + 0.25 * Math.sin(t * 0.5) + 0.3 * lock * sync; mushMat.color.setRGB(0.25 * k, 1.0 * k, 0.8 * k); } fMat.color.setRGB(lit * 1.1, lit * 1.2, lit * 1.0); groundMat.color.setRGB(lit * 0.9, lit * 1.05, lit * 0.95);
+        trunkMat.color.setRGB(lit * 0.9, lit * 1.0, lit * 1.0); woodMat.color.setRGB(lit * 0.62 + 0.045, lit * 0.62 + 0.048, lit * 0.6 + 0.05); { const k = 0.35 + 0.25 * Math.sin(t * 0.5) + 0.3 * lock * sync; mushMat.color.setRGB(0.25 * k, 1.0 * k, 0.8 * k); } fMat.color.setRGB(lit * 1.1, lit * 1.2, lit * 1.0); groundMat.color.setRGB(lit * 0.9, lit * 1.05, lit * 0.95);
         const vcx = PXF(cp.z - 26), vcz = cp.z - 26;
         for (let i = 0; i < FN; i++) {
           const d = fd[i]; let x = d.x + d.r * Math.sin(t * d.sp + d.ph), y = d.y + d.r * Math.cos(t * d.sp * 0.8 + d.ph), z = d.z + d.r * Math.sin(t * d.sp * 0.6 + d.ph * 2);
@@ -95,6 +107,8 @@ export default {
           const phi = lerp(d.rp, WAVE(d.z) + d.rp * 0.05, lock), f = Math.pow(Math.max(0, Math.sin(6.2832 * (t * RATE + phi))), 5), b = (0.16 + 0.84 * f) * (0.8 + 0.2 * lock), vb = d.vi >= 0 ? 1 + 0.8 * vort : 1;
           fc[n] = 0.85 * b * vb; fc[n + 1] = 1.0 * b * vb; fc[n + 2] = 0.35 * b * vb; hc[n] = 0.14 * (0.2 + f) * vb; hc[n + 1] = 0.2 * (0.2 + f) * vb; hc[n + 2] = 0.05 * (0.2 + f) * vb;
         }
+        for (let i = 0; i < RFN; i++) { const d = rfz[i], phi = lerp(d.rp, WAVE(d.z) + d.rp * 0.05, lock), f = Math.pow(Math.max(0, Math.sin(6.2832 * (t * RATE + phi))), 5), b = 0.22 + 0.78 * f; rfc[i * 3] = 0.85 * b; rfc[i * 3 + 1] = b; rfc[i * 3 + 2] = 0.35 * b; } rfg.attributes.color.needsUpdate = true;
+        { const so = (T - 4.4) / 4.4; owl.g.visible = so > 0 && so < 1; if (owl.g.visible) { const c = camAt(T); owl.g.position.set(c[0] + lerp(-9.5, 9.5, so), 5.9 - 1.3 * Math.sin(so * Math.PI), c[2] - 11 - 3 * so); owl.g.rotation.set(0.05, Math.PI / 2 - 0.2, 0.55); owl.pose({ flap: t * 4.2, glide: 0.55 + 0.4 * Math.sin(so * Math.PI), t }); } }
         fg.attributes.position.needsUpdate = true; fg.attributes.color.needsUpdate = true; hg.attributes.color.needsUpdate = true;
       },
       dispose() { if (sky.dispose) sky.dispose(); for (const o of trash) o.dispose && o.dispose(); },
