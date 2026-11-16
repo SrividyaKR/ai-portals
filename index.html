@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Portals · with twelve new worlds by Sri</title>
+<!-- this fork's front door is the twelve-world page; any address with a query (?tour=, ?start=, ?all) still opens the engine -->
+<script>if (!location.search && !location.hash) location.replace('./twelve/');</script>
 <meta name="description" content="A fork of Portals by Ethan Mollick, with twelve new worlds added by Sri. An endless flight through procedurally generated worlds, each one reached through a portal in the last.">
 <!-- link previews: crawlers run no scripts, so these are static; the picture is og.jpg at the site's root (1200 by 630) -->
 <meta property="og:type" content="website">
