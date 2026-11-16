@@ -1,0 +1,48 @@
+# Brief: infinity-mirror-room (The Infinity Room)
+
+## 1. The world in one line
+**One barn swallow has flown into an infinity mirror room, and the mirrors turn it into a flock of thousands.**
+Place: a real infinity mirror room: a black hall with mirror walls and ceiling, a floor of shallow black water, a narrow dark walkway, hundreds of small orbs hanging on threads.
+Twist: the only living thing is one swallow. Every mirror copies it, so each wingbeat and each dip to the water happens a thousand times, out to the edge of sight.
+Keep: the mirror-lattice technique (cells `k,j` with mirrored matrices, lines 47-56, which already copy everything in `base`), orbs on threads, the slow "colour weather" rolling down the hall (line 81), constant speed, the looks out through the mirrors.
+Drop: the purple chevron walkway (it reads as a video game), the gold pilaster grid (a perfect grid), the 2.3-size glow sprites (broad halos; frames 1.5 to 18 s are a green wash), the full rainbow, the mirror ball (it competes with the portal), the ring that fills the screen by 15 s.
+
+What's weak in the sheet: 0.5 s is dark and empty (no hook). Every frame looks the same (no beats, no subject). Blown green blobs cover the top 60% of each frame. The bottom 40% is a flat purple plastic strip. From 12 s the portal swells to half the frame.
+
+## 2. Focal subject
+Candidates: (a) a barn swallow (flies, banks, dips to drink, perches); (b) a moth drawn to the orbs (too small to read at 9:16); (c) koi in the floor water (already used in garden-of-sixty-gardens and ice-bubble-lake); (d) a visitor's silhouette (a person, no behaviour worth watching); (e) water striders (too small).
+**Pick: the swallow.** A bird trapped indoors is something people really see, and its real behaviour shows the room off. It skims, drinks (a ripple ring that every reflection repeats), climbs into the orbs and lands on a thread so the orb swings. Because it sits in `base`, the mirrors turn it into a flock for free, and that is the payoff of the place. Deep blue back, rust throat, forked tail: it reads against the orbs.
+
+## 3. Beat list (DUR 18 s, z = 30 - V*T; staged on T = u*DUR, the swallow's wingbeat on `t`)
+- **0-2 s hook**: we start already low over the water (eye 1.3 m). The swallow is in frame from the first frame, 7 m ahead, low and banking left. A soft wave of brightness rolls away from us through the orbs (one pulse, travelling at 25 m/s, not a flicker), and the side mirrors show the bird as a flock of hundreds banking together. Nothing is triggered before T = 1.
+- **2.5-7 s the drink**: at T = 2.8 the swallow drops and touches the water 9 m ahead. A ripple ring spreads, the orb reflections shiver in it, and every mirror copy makes its own ring, so the floor fills with rings to infinity. The camera looks down at the rings (poi), then out through the left mirror at the flock of copies (T 5-6.5).
+- **7-12 s the climb**: the swallow flies up into the orbs, weaving between threads. The camera rises from 1.3 to 2.6 and pitches up after it. The ceiling mirror shows the walkway and the water below. The colour weather turns from blue-green to pink-ochre over these seconds.
+- **12-16 s the landing**: the swallow lands on an orb's thread 4 m right of the path at 3.5 m height. The orb swings (a damped pendulum, about 0.4 Hz) and every copy swings too. The camera swerves right and slows its gaze on the bird (poi), then lets it go.
+- **16-18 s exit**: the swallow drops off the thread, flies ahead down the hall and through the small ring at the far end, its copies following it in. End. No empty glide.
+
+## 4. Detail layers (near to far; aim about 1,000 to 1,300 lines)
+1. **Water floor (bottom 40%, about 180 lines)**: replace the grid floor with a black water plane. Fresnel reflection of the orbs (the j = -1 cell is already the reflection; lay a dark plane with low opacity and a ripple normal over it so the reflection shimmers), and ripple rings from the dips (a ring buffer of 6 rings: radius = 1.6·age, amplitude falling with age, so mirror copies show the rings too). Copy the wet reflection from `src/worlds/false-stars.js` (lines ~170-180, `reflect`, `R.y=abs(R.y)`) and the dark pool in `src/worlds/million-mirrors.js` (header lines 12-26, and the pool lamps around line 1202 for small lights on water).
+2. **Walkway (about 90 lines)**: a narrow path of matte black lacquer slabs (0.9 m wide, 1.6 m long, 4 cm gaps, each turned by ±1.5° and lifted ±1 cm). It follows the camera's S-curve, sits 4 cm above the water, and carries thin rim highlights in the orbs' colours. This tells the viewer what they stand on. No chevrons, no purple.
+3. **Orbs (about 160 lines, rework)**: 340 becomes about 520. Radius 0.08 to 0.45 on a skewed distribution (mostly small). Some loose clusters of 3 to 7 at mixed heights, threads at opacity 0.35. Glow sprite size 2.3 becomes 0.5 to 0.8, scaled by orb radius. Hues limited to a palette that drifts: blue, teal-green, ochre, dusk pink (no full HSL sweep). The emissive core does the glowing, not the halo.
+4. **Motes (about 30 lines)**: `fx.makeParticles` preset `'dust'`, about 900 tiny motes in the hall box, colours from the palette, as in `src/worlds/million-mirrors.js:1356`. Replace the 1,600 twinkling `starM` points (speckle risk). Twinkle no faster than 0.6 Hz.
+5. **The swallow and its flock (about 200 lines)**: one bird mesh in `base`. Body: forked tail, long swept wings, a beat of about 8 Hz while flapping and glides between bursts (real swallow rhythm), and wings folded when perched. Use `wingedGeo(..., { fork: true })` from `src/parts/boathouse-full-of-morning.js` and orient it the way `flock()` does in `src/worlds/boathouse-full-of-morning.js:301-322` (heading from position at t and t+0.06). The route is a spline keyed to T: skim, drink at T 2.8, climb, perch at T 12.5 to 15.8, exit through the ring. Bank angle comes from curvature. The cells copy the bird automatically. Make sure each cell's clone shares the bird's matrix (as `parts[0].instanceMatrix` does at line 52).
+6. **Mirror seams (about 80 lines)**: replace the gold pilasters and strips with thin dark seams between mirror panels of uneven widths (1.1 to 1.7 m). Give each cell's matrix a tiny jitter (±0.25° yaw, ±0.2° pitch, seeded per k,j) so the copies drift slightly out of line, as real mirror rooms do, and nothing reads as a perfect grid.
+7. **Depth by reflection, not fog (about 60 lines)**: each copy is dimmer and cooler by |k|+|j|, as in `src/worlds/garden-of-sixty-gardens.js` (header lines 6-7 and 19-21, "distance counted in reflections"). Add a tinted glass sheet per mirror plane (keep the line 58 idea, opacity 0.18, tinted blue-violet). Raise KX to 4 so no lattice edge shows when looking sideways.
+8. **Low mist (about 40 lines)**: a thin breath of mist over the water, a few soft planes 0.3 to 0.8 m high and 6% opacity, drifting. It softens the water line and the far end.
+9. **Far end**: the hall dissolves into copies 120 m ahead. The ring stands on the water there, among a sparse gap in the orbs so it reads.
+
+## 5. Camera path and pois
+- Path: z = 30 - 6T (108 m in 18 s). x = an S-curve, 1.0·sin(0.42T) + 0.35·sin(1.1T), kept on the walkway. y = 1.3 until 6.5 s, smoothstep to 2.6 by 11 s, back to 1.9 by 16 s. Bob 0.03 at most. `nearThrough: 0.4`, fov 70, lookAhead 8, bank 0.05.
+- pois (functions of the bird's position where noted, weight 0.6 to 0.8, fade 0.3): T 0-2, the bird (light, 0.4). T 2.6-4.5, the ripple at the drink point. T 5-6.5, out through the left mirror at x-14. T 7.5-11, the bird climbing (pitch up about 25°). T 12.6-15, the perched bird. After 16 s, no poi: look ahead at the ring.
+- Corridor: in a 10 m hall the 15 m rule cannot hold. Keep a clear tube of 2.6 m radius round the path for orbs and threads, and 3.5 m for any thread hanging lower than 3 m. The bird passes no closer than 3 m. Walls stay at x = ±5 (the path keeps ≥3.6 m off them). Never through a thread.
+
+## 6. Light and palette
+Bloom strength 0.3, radius 0.5, threshold 0.95. Glow comes from small emissive cores plus `fx` motes, never big sprites. Exposure about 0.95, vignette 0.3, grain 0. Palette: deep blue-black background (#04030a), orbs in blue #4a7cff, teal-green #3fcf9a, ochre #d9a441, dusk pink #f08aa8. The weather drifts blue-green to pink-ochre. Orb breathing at 0.1 to 0.2 Hz, never above 3/s. No white field, no blown patch larger than an orb. Shader colours through pow(col, 2.2).
+
+## 7. Portal
+A ring of small orbs on a single hoop standing on the water at the far end, the same orbs as the room. `{ shape:'circle', style:'ring', radius: 9, color:'#f0b6c8', veil:'#f0b6c8', glow: 0.75, halo: true, revealDistance: 700 }`, centred at y = 9 (raise H to 14 at the last 25 m, or let the ceiling mirror carry it; the copies make the hall feel endless anyway). Place it 135 m from the start so at 9 s it is under 8% of frame width and at 16 s under 30%. The bird flies into it at 17.5 s. Set `portal.style` explicitly.
+
+## 8. Risks (what the judge fails first)
+1. **Glow wash returns**: 520 orbs × 35 cells with any sprite above size 1 or bloom threshold below 0.9 turns the frame into green fog again. Check frames 3 s and 9 s for blown areas first.
+2. **The bird is lost**: at 9:16, a 0.3 m bird among 18,000 orb copies disappears. Scale it to about 0.45 m wingspan × 1.4 for readability, keep orbs sparse within 6 m of its route, and track it with pois. It must read as a swallow (forked tail) at 1080×1920.
+3. **Performance and lattice edges**: KX 4 × KY 2 = 45 cells. Share geometry and instance matrices (never clone per frame). Check that no side view at T 5-6.5 shows the lattice end. The portal must stay small until the last 2 s.

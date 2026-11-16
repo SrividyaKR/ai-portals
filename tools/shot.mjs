@@ -28,7 +28,9 @@ ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id && pend.has(d.id)
 const send = (method, params = {}) => new Promise((res) => { const i = ++id; pend.set(i, res); ws.send(JSON.stringify({ id: i, method, params })); });
 const ev = async (expr) => (await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true })).result?.result?.value;
 await send('Page.enable'); await send('Runtime.enable'); await send('Emulation.setDeviceMetricsOverride', { width: 1080, height: 1920, deviceScaleFactor: 1, mobile: false });
-await send('Page.navigate', { url: `${BASE}/?world=${encodeURIComponent(world)}&end=1&seed=${SEED}` });
+// no &end=1: with no next world the engine slows near the end (frame times stop matching world time after ~12 s) and the
+// portal shows a blank disc; with a next world queued, timing stays true and the portal shows a real world inside
+await send('Page.navigate', { url: `${BASE}/?world=${encodeURIComponent(world)}&seed=${SEED}` });
 // the world has appeared once the engine has it as the current world (the dark antechamber comes first)
 let t0 = 0; for (let i = 0; i < 480; i++) { await sleep(250); if (await ev(`(() => { const e = window.__engine; const c = e && e.cur; return !!(c && c.def && c.def.id === ${JSON.stringify(world)}); })()`)) { t0 = Date.now(); break; } }
 if (!t0) { console.error('the world never appeared within 120 s'); fs.writeFileSync(path.join(outDir, `${world}-console.txt`), logs.join('\n')); done(1); }
