@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Twelve Worlds · built on Portals by Ethan Mollick</title>
+<meta name="description" content="Twelve imagined worlds by Sri, drawn live in your browser: a dragon blood forest in Socotra, a skater on the Bolivian salt flats, the dye vats of Fez and nine more. Built on Portals, the open-source engine by Ethan Mollick.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Twelve Worlds · built on Portals by Ethan Mollick">
+<meta property="og:description" content="Twelve imagined worlds by Sri, drawn live in your browser. Built on Portals, the open-source engine by Ethan Mollick.">
+<meta property="og:url" content="https://srividyakr.github.io/ai-portals/twelve/">
+<meta property="og:image" content="https://srividyakr.github.io/ai-portals/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#000000">
+<style>
+html,body{margin:0;height:100%;background:#0b0b0d;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;color:#ddd}
+#box{width:min(100vw,calc(96vh * 9 / 16));width:min(100vw,calc(96dvh * 9 / 16));aspect-ratio:9/16;position:relative;background:#000;overflow:hidden}
+iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+#start{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 9%}
+h1{font-weight:normal;font-style:italic;font-size:clamp(26px,7vw,40px);margin:0 0 10px;color:#fff}
+#sub{font-size:15px;line-height:1.5;color:#b9b9c4;margin:0 0 28px}
+#go{font:inherit;font-size:19px;padding:15px 30px;border-radius:40px;border:1px solid #888;background:#1c1c22;color:#fff;cursor:pointer}
+#go:hover{background:#2a2a34}
+#credit{position:absolute;left:0;right:0;bottom:18px;text-align:center;font-size:12px;line-height:1.6;color:#8d8d99;padding:0 8%;font-family:system-ui,sans-serif}
+#credit a{color:#b9c8e8}
+#load{position:absolute;left:10%;right:10%;bottom:12%;text-align:center;font:15px system-ui,sans-serif;color:#fff;z-index:5;pointer-events:none;text-shadow:0 1px 3px #000}
+#bar{height:4px;background:#333;border-radius:2px;margin:10px 0}#bar i{display:block;height:100%;width:0;background:#9bd;border-radius:2px;transition:width .5s}
+#ls{font-size:13px;color:#aaa}
+</style>
+</head>
+<body>
+<div id="box">
+  <div id="start">
+    <h1>Twelve Worlds</h1>
+    <p id="sub">Twelve imagined places, drawn live by your own device. About four minutes. Best on a phone held upright.</p>
+    <button id="go">&#9654; Begin</button>
+    <div id="credit">Worlds by Sri, made with Claude Code.<br>Built on <a href="https://github.com/emollick/ai-portals">Portals by Ethan Mollick</a>, CC BY-NC-SA 4.0.<br><a href="../">Fly all the worlds</a> · <a href="https://github.com/SrividyaKR/ai-portals">Source</a></div>
+  </div>
+</div>
+<script>
+const box = document.getElementById('box'), go = document.getElementById('go');
+const tour = 'dragon-blood-forest,salt-hexagons,dye-vats-of-fez,ice-bubble-lake,fish-rain-night,bone-breaker-ridge,monarch-river,infinity-mirror-room,snow-monsters-watch,long-table-village,living-root-bridge,firefly-synchrony';
+go.onclick = () => {
+  const f = document.createElement('iframe'); f.allow = 'autoplay; fullscreen'; f.src = '../?tour=' + tour + '&end=1&seed=7'; box.appendChild(f);
+  document.getElementById('start').remove();
+  const L = document.createElement('div'); L.id = 'load'; L.innerHTML = '<div>Building the first world. This takes about half a minute.</div><div id="bar"><i></i></div><div id="ls">0 s</div>'; box.appendChild(L);
+  const t0 = Date.now(), iv = setInterval(() => {
+    const s = Math.round((Date.now() - t0) / 1000); document.getElementById('ls').textContent = s + ' s'; L.querySelector('i').style.width = Math.min(95, s * 3) + '%';
+    try { const e = f.contentWindow.__engine; if (e && e.cur && s > 3) { L.remove(); clearInterval(iv); } } catch (x) { /* not ready yet */ }
+    if (s > 120) { L.remove(); clearInterval(iv); }
+  }, 500);
+};
+</script>
+</body>
+</html>
