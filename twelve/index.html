@@ -40,14 +40,18 @@ h1{font-weight:normal;font-style:italic;font-size:clamp(26px,7vw,40px);margin:0 
 <script>
 const box = document.getElementById('box'), go = document.getElementById('go');
 const tour = 'dragon-blood-forest,salt-hexagons,dye-vats-of-fez,ice-bubble-lake,fish-rain-night,bone-breaker-ridge,monarch-river,infinity-mirror-room,snow-monsters-watch,long-table-village,living-root-bridge,firefly-synchrony';
+// the tour's own soundtrack (the one on the recorded film): unlocked by the Begin tap, started from the top when the first world appears
+const music = new Audio('music.m4a'); music.preload = 'auto';
+const startMusic = () => { music.currentTime = 0; music.play().catch(() => {}); };
 go.onclick = () => {
+  music.play().then(() => { music.pause(); music.currentTime = 0; }).catch(() => {});
   const f = document.createElement('iframe'); f.allow = 'autoplay; fullscreen'; f.src = '../?tour=' + tour + '&end=1&seed=7'; box.appendChild(f);
   document.getElementById('start').remove();
   const L = document.createElement('div'); L.id = 'load'; L.innerHTML = '<div>Building the first world. This takes about half a minute.</div><div id="bar"><i></i></div><div id="ls">0 s</div>'; box.appendChild(L);
   const t0 = Date.now(), iv = setInterval(() => {
     const s = Math.round((Date.now() - t0) / 1000); document.getElementById('ls').textContent = s + ' s'; L.querySelector('i').style.width = Math.min(95, s * 3) + '%';
-    try { const e = f.contentWindow.__engine; if (e && e.cur && s > 3) { L.remove(); clearInterval(iv); } } catch (x) { /* not ready yet */ }
-    if (s > 120) { L.remove(); clearInterval(iv); }
+    try { const e = f.contentWindow.__engine; if (e && e.cur && s > 3) { L.remove(); clearInterval(iv); startMusic(); } } catch (x) { /* not ready yet */ }
+    if (s > 120) { L.remove(); clearInterval(iv); startMusic(); }
   }, 500);
 };
 </script>
