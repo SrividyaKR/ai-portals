@@ -1,5 +1,9 @@
 # Portals
 
+> **This is a fork.** The original Portals is by Ethan Mollick: [emollick/ai-portals](https://github.com/emollick/ai-portals), live at [portals-endless-worlds.netlify.app](https://portals-endless-worlds.netlify.app). Everything below this note is his README, unchanged.
+>
+> **What this fork changes:** it adds fifteen worlds made by Sri with Claude Code in November 2026 (twelve of them play as one tour at [srividyakr.github.io/ai-portals/twelve/](https://srividyakr.github.io/ai-portals/twelve/)), a small shared helper file (`src/kit/mine.js`), a phone-shaped tour page (`twelve/`, `preview/`), and the site address in `index.html` and `src/ui/share.js`. The engine and the original 471 worlds are his. Same licence: CC BY-NC-SA 4.0, non-commercial.
+
 An endless, hands-off flight through 471 generated 3D worlds in a browser. Each world ends in a portal that opens on the next one, and nothing is steered: it flies itself. Live at [portals-endless-worlds.netlify.app](https://portals-endless-worlds.netlify.app) (press S for sound).
 
 [![The Midwinter Express, one of the worlds of Portals: a steam train crosses a stone viaduct above a snowy town at dusk](readme/the-midwinter-express.jpg)](https://portals-endless-worlds.netlify.app)

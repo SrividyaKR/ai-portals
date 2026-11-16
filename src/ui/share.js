@@ -2,7 +2,7 @@
 // main.js wires these to the bar and the options; the gallery (atlas.js) is handed the favourites and the seen list.
 // tools/build-deploy.mjs writes the page behind a world link (w/<id>/index.html) and copies og.jpg.
 
-export const SITE = 'https://portals-endless-worlds.netlify.app';   // printed on saved pictures; the tags in index.html carry it too
+export const SITE = 'https://srividyakr.github.io/ai-portals';   // printed on saved pictures; the tags in index.html carry it too
 
 // ---------- the About ----------
 // The text is the site's public statement of who made it: a release does not reword it.
