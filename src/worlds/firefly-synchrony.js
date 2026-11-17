@@ -45,13 +45,16 @@ float maleSync(vec3 p){
   float e = uT - 20.5 - d / 160.; if (e > 0.) b = max(b, pulseN(mod(e, 7.) / .72, 6.));
   return b;
 }
+uniform sampler2D uLM; uniform vec4 uLMB; uniform float uFieldLvl;
 float burstEnv(vec3 p){
   float d = dot(p.xz - uWO, uWD), e = uT - 6.5 - d / 80.;
   float b = smoothstep(0., .5, e) * (1. - smoothstep(4.08, 4.7, e));
   e = uT - 14. - d / 160.; b = max(b, smoothstep(0., .5, e) * (1. - smoothstep(5.04, 5.7, e)));
   e = uT - 20.5 - d / 160.; if (e > 0.) { float c = mod(e, 7.); b = max(b, smoothstep(0., .5, c) * (1. - smoothstep(4.32, 4.9, c))); }
   return b;
-}`;
+}
+// the local light of the fireflies around p: their density (a blurred map of the field) times how much they are shining now
+float fieldGlow(vec3 p){ float dn = texture2D(uLM, clamp((p.xz - uLMB.xy) * uLMB.zw, 0., 1.)).r; return dn * (uFieldLvl + .9 * burstEnv(p) + .5 * maleSync(p)); }`;
 
 const FLY_VERT = /* glsl */`
 attribute vec3 aP, aQ; attribute vec4 aR;
@@ -75,7 +78,7 @@ void main(){
   } else if (kind > 3.5) {                                            // the swarm that lifts into the column
     float k = smoothstep(0., 1., clamp((uT - 13.8 - aR.z * 1.1) / 1.9, 0., 1.));
     if (k > 0.) {
-      float arm = step(.5, fract(aR.x * 3.7)), a = fract(aR.x * 7.13 + uTime * .028), th = a * 15. + uTime * .45 + arm * 3.14159 + (aR.z - .5) * .7, rad = 3. + 6.5 * a + .9 * sin(aR.z * 40.);
+      float arm = step(.62, fract(aR.x * 3.7)), a = fract(aR.x * 7.13 + uTime * .028), th = a * 11. + uTime * .45 + arm * 2.6 + (aR.z - .5) * 2.6 + .45 * sin(uTime * .7 + aR.x * 31.), rad = 3. + 6.5 * a + 2.6 * sin(aR.x * 57. + uTime * .3) * (.4 + a) + 1.4 * sin(aR.z * 40.);
       p = mix(p, uCol + vec3(cos(th) * rad, a * 46., sin(th) * rad), k);
       colA = mix(1., smoothstep(0., .05, a) * (1. - smoothstep(.82, 1., a)), k);
       b = max(b, .5 * k);
@@ -84,7 +87,7 @@ void main(){
   b = max(b, .03);
   vec4 mv = modelViewMatrix * vec4(p, 1.);
   float dist = length(mv.xyz), want = uSize * (.7 + .6 * aR.y) * (kind > 3.5 ? 1.25 : 1.), sz = max(want, dist * uPx * 1.6);   // never under ~3 pixels, never a big disc
-  float nf = (kind < .5 || kind > 3.5) ? smoothstep(3., 9., dist) : kind < 1.5 ? smoothstep(1.2, 3.4, dist) : smoothstep(1.6, 4.2, dist);
+  float nf = (kind < .5 || kind > 3.5) ? smoothstep(2., 6., dist) : kind < 1.5 ? smoothstep(1.2, 3.4, dist) : smoothstep(1.6, 4.2, dist);
   mv.xy += position.xy * sz * vec2(1., uStreak);
   vQ = position.xy;
   vC = ((kind > 1.5 && kind < 2.5) ? uFem : uFly) * b * (.45 + .55 * aR.y) * (want * want) / (sz * sz) * nf * exp(-uFogK * uFogK * dist * dist) * colA * uDim;
@@ -92,14 +95,14 @@ void main(){
 }`;
 const FLY_FRAG = /* glsl */`
 varying vec2 vQ; varying vec3 vC;
-void main(){ float r2 = dot(vQ, vQ); if (r2 > 1.) discard; float a = exp(-r2 * 18.) + .12 * exp(-r2 * 3.5) * (1. - r2); gl_FragColor = vec4(vC * a * 5.2, 1.); }`;
+void main(){ float r2 = dot(vQ, vQ); if (r2 > 1.) discard; float a = exp(-r2 * 18.) + .12 * exp(-r2 * 3.5) * (1. - r2); gl_FragColor = vec4(vC * a * 6.5, 1.); }`;
 
 const WATER_VERT = /* glsl */`
 varying vec2 vUv; varying vec3 vWP;
 void main(){ vUv = uv; vec4 w = modelMatrix * vec4(position, 1.); vWP = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
 const WATER_FRAG = /* glsl */`
 varying vec2 vUv; varying vec3 vWP;
-uniform float uTime, uAmb, uWaveK, uFogK, uR1, uR2; uniform vec3 uWater, uFoam, uFogCol, uCam;
+uniform float uTime, uAmb, uWaveK, uFogK, uR1, uR2, uGlowK; uniform vec3 uWater, uFoam, uFogCol, uCam;
 ${FLASH_GLSL}
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
@@ -110,7 +113,7 @@ void main(){
   float riff = exp(-pow((s - uR1) / 3.5, 2.)) + exp(-pow((s - uR2) / 4.5, 2.));
   float sl = mod(s, 64.), foam = .45 * riff * smoothstep(.3, 1., vn(vec2(l * 2.6, sl * .7 - uTime * 1.2)) * .75 + .35 * vn(vec2(l * 5.5, sl * 1.6 - uTime * 1.9))) * (1. - edge);
   float wl = maleSync(vWP);
-  vec3 col = uWater * (.8 + .7 * rip) * (1. + 2.4 * uWaveK * wl) + uFoam * foam * (uAmb * 2.2 + uWaveK * 1.6 * wl);
+  vec3 col = vec3(.5, .8, .28) * fieldGlow(vWP) * uGlowK * .35 * (.6 + rip) + uWater * (.8 + .7 * rip) * (1. + 2.4 * uWaveK * wl) + uFoam * foam * (uAmb * 2.2 + uWaveK * 1.6 * wl);
   float a = clamp(mix(.34, .75, edge) + .15 * rip + .5 * foam, 0., .95);
   float d = length(vWP - uCam), f = 1. - exp(-uFogK * uFogK * d * d);
   gl_FragColor = vec4(mix(col, uFogCol, f), mix(a, 1., f));
@@ -185,13 +188,13 @@ export default {
     await tick();
 
     // ---------------- sky, fog ----------------
-    const sky = await skyFor(ctx, scene, { preset: 'night', stars: 0.35, sky: { zenith: '#060e24', mid: '#122640', horizon: '#2a4660', milkyWay: 0.22, ground: '#06101a', horizonPow: 2.2, clouds: { coverage: 0.08, lit: '#24384e', shade: '#060c18', silver: 0 } } });
-    const FOGC = C('#162a40'); scene.fog = new THREE.FogExp2(FOGC, 0.0125); scene.background = C('#06101a');
+    const sky = await skyFor(ctx, scene, { preset: 'night', stars: 0.35, sky: { zenith: '#0a1832', mid: '#1a3252', horizon: '#36587c', milkyWay: 0.22, ground: '#06101a', horizonPow: 2.2, clouds: { coverage: 0.08, lit: '#24384e', shade: '#060c18', silver: 0 } } });
+    const FOGC = C('#1c3452'); scene.fog = new THREE.FogExp2(FOGC, 0.0125); scene.background = C('#06101a');
     await tick();
 
     // ---------------- shared uniforms: the wave of light through the whole scene ----------------
-    const s60 = at(60), WD = new THREE.Vector2(-Math.cos(s60.h), -Math.sin(s60.h)), WO = new THREE.Vector2(s60.x + Math.cos(s60.h) * 100, s60.z + Math.sin(s60.h) * 100);
-    const FU = { uT: { value: 0 }, uWO: { value: WO }, uWD: { value: WD }, uAmb: { value: 0.27 }, uWaveK: { value: 0.3 }, uWL: { value: WL } };
+    const s60 = at(60), WD = new THREE.Vector2(-Math.cos(s60.h), -Math.sin(s60.h)), WO = new THREE.Vector2(s60.x + Math.cos(s60.h) * 55, s60.z + Math.sin(s60.h) * 55);
+    const FU = { uT: { value: 0 }, uWO: { value: WO }, uWD: { value: WD }, uAmb: { value: 0.34 }, uWaveK: { value: 0.3 }, uWL: { value: WL }, uLM: { value: null }, uLMB: { value: new THREE.Vector4() }, uFieldLvl: { value: 0.45 }, uGlowK: { value: 0.8 } };
     const maleSyncJS = (x, z, T) => { const d = (x - WO.x) * WD.x + (z - WO.y) * WD.y; let b = pulseN((T - 6.5 - d / 80) / 0.68, 6); b = Math.max(b, pulseN((T - 14 - d / 160) / 0.72, 7)); const e = T - 20.5 - d / 160; if (e > 0) b = Math.max(b, pulseN((e % 7) / 0.72, 6)); return b; };
     // MeshBasicMaterial lit by the night (uAmb) and by the passing wave of flashes; optionally cut away under the water line
     const litMat = (opts, lightK = 1, cut = false, atlas = false) => {
@@ -208,9 +211,9 @@ export default {
           wq = instanceMatrix * wq;
           #endif
           vWP = (modelMatrix * wq).xyz;`);
-        sh.fragmentShader = 'varying vec3 vWP; uniform float uLK, uAmb, uWaveK, uWL;\n' + FLASH_GLSL + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        sh.fragmentShader = 'varying vec3 vWP; uniform float uLK, uAmb, uWaveK, uWL, uGlowK;\n' + FLASH_GLSL + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
           ${cut ? 'if (vWP.y < uWL) discard;' : ''}
-          diffuseColor.rgb *= uLK * (uAmb + uWaveK * (.5 * burstEnv(vWP) + .5 * sqrt(maleSync(vWP))) * vec3(.86, 1., .58));`);
+          diffuseColor.rgb *= uLK * (uAmb + uWaveK * (.5 * burstEnv(vWP) + .5 * sqrt(maleSync(vWP))) * vec3(.86, 1., .58) + uGlowK * fieldGlow(vWP) * vec3(.78, 1., .42));`);
       };
       m.customProgramCacheKey = () => 'ffsync-lit' + (cut ? '-cut' : '') + (atlas ? '-atlas' : '');
       return own(m);
@@ -261,6 +264,9 @@ export default {
       for (let i = 0; i < 70; i++) { const x = R.range(0, 128), v = R.int(80, 150); g.strokeStyle = `rgba(${v},${v - 6},${v - 18},0.5)`; g.lineWidth = R.range(0.6, 2); g.beginPath(); g.moveTo(x, 0); g.lineTo(x + R.range(-3, 3), 128); g.stroke(); }
       for (let i = 0; i < 26; i++) { const x = R.range(0, 128), y = R.range(0, 128), r = R.range(3, 9); g.fillStyle = `rgba(${R.int(150, 190)},${R.int(175, 200)},${R.int(130, 160)},${R.range(0.45, 0.8)})`; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); g.fillStyle = 'rgba(120,140,100,0.5)'; g.beginPath(); g.arc(x, y, r * 0.5, 0, TAU); g.fill(); } }
     const postT = tex(postC);
+    const railC = mkCanvas(128); { const g = railC.getContext('2d'); g.fillStyle = '#8a8070'; g.fillRect(0, 0, 128, 128);
+      for (let i = 0; i < 80; i++) { const y = R.range(0, 128), v = R.int(80, 150); g.strokeStyle = `rgba(${v},${v - 6},${v - 18},0.5)`; g.lineWidth = R.range(0.6, 2.2); g.beginPath(); g.moveTo(0, y); g.lineTo(128, y + R.range(-1, 1)); g.stroke(); } }
+    const railMat = litMat({ map: tex(railC), color: '#ffffff' }, 1.2);
     // bark: deep furrows (tulip poplar) that the hemlocks take on darker and redder through their instance colour; moss comes from the geometry
     const barkC = document.createElement('canvas'); barkC.width = 256; barkC.height = 512; { const g = barkC.getContext('2d'); g.fillStyle = '#8c8c86'; g.fillRect(0, 0, 256, 512);
       for (let i = 0; i < 46; i++) { let x = R.range(0, 256); g.strokeStyle = `rgba(${R.int(25, 50)},${R.int(25, 45)},${R.int(22, 40)},${R.range(0.55, 0.9)})`; g.lineWidth = R.range(2, 6); g.beginPath(); g.moveTo(x, -10); for (let y = 0; y <= 520; y += 26) { x += R.range(-5, 5); g.lineTo(x, y); } g.stroke(); }
@@ -291,8 +297,8 @@ export default {
     await tick();
 
     // ---------------- materials ----------------
-    const groundMat = litMat({ map: groundT, vertexColors: true }, 2.6, true);
-    const plankMat = litMat({ map: plankT, color: '#ffffff' }, 1.05, false, true), postMat = litMat({ map: postT, color: '#ffffff' }, 1.2);
+    const groundMat = litMat({ map: groundT, vertexColors: true }, 1.9, true);
+    const plankMat = litMat({ map: plankT, color: '#ffffff' }, 0.72, false, true), postMat = litMat({ map: postT, color: '#ffffff' }, 1.2);
     const barkMat = litMat({ map: barkT, vertexColors: true }, 2.6), stoneMat = litMat({ map: stoneT, color: '#ffffff' }, 1.8);
     const fernMat = litMat({ vertexColors: true, side: THREE.DoubleSide }, 2.4), lumpMat = litMat({ vertexColors: true }, 2.0);
     const leafMat = litMat({ map: leafT, alphaTest: 0.5, side: THREE.DoubleSide }, 1.3), boughMat = litMat({ map: boughT, alphaTest: 0.35, side: THREE.DoubleSide, color: '#ffffff' }, 1.9);
@@ -320,7 +326,7 @@ export default {
     const plankTints = ['#ffffff', '#f4efe6', '#fff6e8', '#e8e6e0', '#f8f0dc', '#ece4d4'];
     for (const [s, w] of planksList) { const a = at(s); put(planks, plankN++, a.x, DECK + R.range(-0.008, 0.008), a.z, R.range(-0.006, 0.006), -a.h + R.range(-0.012, 0.012), R.range(-0.01, 0.01), 1.92 + R.range(-0.04, 0.04), 0.06, w, _c.set(plankTints[R.int(0, 5)]).multiplyScalar(R.range(0.82, 1.1))); }
     // posts, two rails each side, stringers and sleepers below, X bracing where it crosses the creek
-    const posts = inst(own(new THREE.BoxGeometry(1, 1, 1)), postMat, 420), rails = inst(own(new THREE.BoxGeometry(1, 1, 1)), postMat, 820), under = inst(own(new THREE.BoxGeometry(1, 1, 1)), postMat, 1100);
+    const posts = inst(own(new THREE.BoxGeometry(1, 1, 1)), postMat, 420), rails = inst(own(new THREE.BoxGeometry(1, 1, 1)), railMat, 820), under = inst(own(new THREE.BoxGeometry(1, 1, 1)), railMat, 1100);
     let postN = 0, railN = 0, underN = 0; const railTops = [];
     const postS = []; for (let s = BW0 + 0.3; s < BW1 - 0.2; s += 2.4 + R.range(-0.08, 0.08)) postS.push(s); postS.push(BW1 - 0.15);
     const beam = (mesh, ax, ay, az, bx, by, bz, w, h, col) => { const dx = bx - ax, dy = by - ay, dz = bz - az, L = Math.hypot(dx, dy, dz); _p.set((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2); _q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(dx / L, dy / L, dz / L)); _s.set(w, h, L); mesh.setMatrixAt(mesh.userData.n, _m.compose(_p, _q, _s)); mesh.setColorAt(mesh.userData.n, col || _c.set('#ffffff')); mesh.userData.n++; };
@@ -432,16 +438,17 @@ export default {
     // the canopy: many small irregular sprays on every near tree from 6 m up (hemlocks drooping in tiers, poplars higher and
     // flatter), so the crowns are broken lace against the sky and catch the fireflies' light; far trees keep small rough lumps
     { const g = own(new THREE.PlaneGeometry(1, 1, 6, 1)); g.translate(0.5, 0, 0); const P = g.attributes.position; for (let i = 0; i < P.count; i++) { const x = P.getX(i); P.setXYZ(i, x, -0.35 * x * x, P.getY(i) * (0.35 + 0.65 * x)); }
-      const NBo = 8200, boughs = inst(g, boughMat, NBo, true); let n = 0;
+      const NBo = 12000, boughs = inst(g, boughMat, NBo, true); let n = 0;
       for (const [x, y, z, Ht, hem, far, r] of tops) { if (far) continue; const q = gq(x, z), open = q.sP > 90 ? 1 - ss(20, 34 + 0.12 * (q.sP - 90), q.dC) : 0;   // the creek opening near the end stays open to the stars
-        const m = hem ? R.int(18, 25) : R.int(14, 19);
-        for (let k = 0; k < m && n < NBo; k++) { const f = Math.pow(R(), 0.8), hh = hem ? lerp(6, 0.88 * Ht, f) : lerp(0.45 * Ht, 0.95 * Ht, f); if (f > 0.5 && R() < open) continue;
-          const a = R.range(0, TAU), L = (hem ? R.range(2.6, 5) * (1.25 - 0.7 * f) : R.range(2.2, 4.2)) * R.range(0.8, 1.15), tint = hem ? R.range(0.55, 0.95) : R.range(0.8, 1.2);
-          put(boughs, n++, x + Math.cos(a) * r * 0.7, y + hh, z - Math.sin(a) * r * 0.7, 0, a, hem ? R.range(-0.25, 0.05) : R.range(-0.05, 0.3), L, L * (hem ? 0.7 : 0.35), L * R.range(0.5, 0.85), _c.set(hem ? '#d8e8d0' : '#f0ffe0').multiplyScalar(tint)); } }
+        if (hem) { for (let hh = 6 + R.range(0, 1.5); hh < 0.9 * Ht && n < NBo - 6; hh += R.range(1.8, 2.8)) { const f = (hh - 6) / (0.9 * Ht - 6); if (f > 0.5 && R() < open) continue;   // a dense drooping cone, tier by tier
+            const nt = R.int(3, 5), a0 = R.range(0, TAU); for (let j = 0; j < nt; j++) { const a = a0 + j * TAU / nt + R.range(-0.4, 0.4), L = R.range(3.4, 5.4) * (1.15 - 0.85 * f) * R.range(0.85, 1.1);
+              put(boughs, n++, x + Math.cos(a) * r * 0.7, y + hh + R.range(-0.3, 0.3), z - Math.sin(a) * r * 0.7, 0, a, R.range(-0.3, -0.05), L, L * 0.8, L * R.range(0.55, 0.85), _c.set('#a8c0a4').multiplyScalar(R.range(0.4, 0.7))); } } }
+        else for (let k = 0, m = R.int(10, 15); k < m && n < NBo; k++) { const f = R(), hh = lerp(0.6 * Ht, 0.95 * Ht, f); if (f > 0.4 && R() < open) continue;   // poplars: only the upper crown
+          const a = R.range(0, TAU), L = R.range(2.2, 4) * R.range(0.8, 1.15); put(boughs, n++, x + Math.cos(a) * r * 0.6, y + hh, z - Math.sin(a) * r * 0.6, 0, a, R.range(-0.05, 0.3), L, L * 0.35, L * R.range(0.5, 0.85), _c.set('#f0ffe0').multiplyScalar(R.range(0.8, 1.2))); } }
       finish(boughs, n); }
-    { const NCr = 900, crowns = inst(lump(1, 0.45, '#0c1e14', '#2c5038'), lumpMat, NCr, true); let n = 0;
-      for (const [x, y, z, Ht, hem, far] of tops) { if (!far) continue;
-        for (let j = 0; j < 3 && n < NCr; j++) { const hh = R.range(0.55, 0.95) * Ht, sc = R.range(2.2, 4.2);
+    { const NCr = 1700, crowns = inst(lump(1, 0.45, '#0c1e14', '#2c5038'), lumpMat, NCr, true); let n = 0;
+      for (const [x, y, z, Ht, hem, far] of tops) { const q = gq(x, z), open = !far && q.sP > 90 ? 1 - ss(20, 34 + 0.12 * (q.sP - 90), q.dC) : 0; if (R() < open) continue;
+        for (let j = 0, m = far ? 3 : hem ? 1 : 2; j < m && n < NCr; j++) { const hh = (far ? R.range(0.55, 0.95) : hem ? R.range(0.88, 0.97) : R.range(0.8, 0.97)) * Ht, sc = far ? R.range(2.2, 4.2) : hem ? R.range(1.4, 2.2) : R.range(2.6, 4.2);
           put(crowns, n++, x + R.range(-3.5, 3.5), y + hh, z + R.range(-3.5, 3.5), R.range(-0.4, 0.4), R.range(0, TAU), R.range(-0.4, 0.4), sc, sc * R.range(0.5, 0.8), sc * R.range(0.7, 1.2), _c.set('#ffffff').multiplyScalar(R.range(0.55, 1.1))); } }
       finish(crowns, n); }
     // rhododendron thickets along the banks, all at least 15 m off the route
@@ -507,7 +514,7 @@ export default {
     { const N = 80, bo = inst(lump(2, 0.14, '#4a6a40', '#5a5a52'), lumpMat, N, true); let n = 0;
       for (let tries = 0; n < N && tries < 3000; tries++) { const s = n % 2 ? R.range(LH - 100, LH + 70) : R.range(-40, LH + 200), cw = CW(s), lat = OFF(s) + R.range(-cw, cw) * 0.95, p = along(s, lat); const q = gq(p[0], p[1]); if (q.dP < 4.2) continue; const sc = R.range(0.35, q.dP < 8 ? 0.7 : 1.3); put(bo, n++, p[0], WL - sc * 0.35 + R.range(0, 0.15), p[1], R.range(-0.2, 0.2), R.range(0, TAU), R.range(-0.2, 0.2), sc * R.range(1, 1.5), sc * R.range(0.6, 0.85), sc * R.range(1, 1.4), _c.set('#ffffff').multiplyScalar(R.range(0.75, 1.1))); }
       finish(bo, n); }
-    const waterU = { uTime: { value: 0 }, uAmb: FU.uAmb, uWaveK: FU.uWaveK, uT: FU.uT, uWO: FU.uWO, uWD: FU.uWD, uFogK: { value: 0.0125 }, uR1: { value: LH - 45 }, uR2: { value: LH + 15 }, uWater: { value: C('#1c3450') }, uFoam: { value: C('#7a8c88') }, uFogCol: { value: FOGC }, uCam: { value: new THREE.Vector3() } };
+    const waterU = { uLM: FU.uLM, uLMB: FU.uLMB, uFieldLvl: FU.uFieldLvl, uGlowK: FU.uGlowK, uTime: { value: 0 }, uAmb: FU.uAmb, uWaveK: FU.uWaveK, uT: FU.uT, uWO: FU.uWO, uWD: FU.uWD, uFogK: { value: 0.0125 }, uR1: { value: LH - 45 }, uR2: { value: LH + 15 }, uWater: { value: C('#1c3450') }, uFoam: { value: C('#7a8c88') }, uFogCol: { value: FOGC }, uCam: { value: new THREE.Vector3() } };
     {
       const Pp = [], UVs = [], I = []; let row = 0;
       for (let i = 0; i < CX.length; i++) {
@@ -558,7 +565,7 @@ export default {
     await tick();
 
     // ---------------- 7. fireflies ----------------
-    const FN = 10400, aP = new Float32Array(FN * 3), aQ = new Float32Array(FN * 3), aR = new Float32Array(FN * 4); let fn = 0;
+    const FN = 13400, aP = new Float32Array(FN * 3), aQ = new Float32Array(FN * 3), aR = new Float32Array(FN * 4); let fn = 0;
     const fly = (x, y, z, kind, qx = x, qy = y, qz = z) => { if (fn >= FN) return; aP.set([x, y, z], fn * 3); aQ.set([qx, qy, qz], fn * 3); aR.set([R(), R(), R(), kind], fn * 4); fn++; };
     const clearOfCam = (x, y, z, d) => { const q = gq(x, z); if (q.dP > d + 3) return true; const s = clamp(q.sP, 0, LH); return q.dP > d || Math.abs(y - EYE(s)) > d; };
     // (a) the valley field: understorey, trunk height, over the creek (doubled in it), deep valley layers, the far valley beyond the ring
@@ -572,6 +579,8 @@ export default {
       const p = along(s, lat), gy = Math.max(WL, H(p[0], p[1])), yy = gy + y; if (!clearOfCam(p[0], yy, p[1], 3.2)) continue; fly(p[0], yy, p[1], 0); i++;
     }
     for (let i = 0, tries = 0; i < 1100 && tries < 12000; tries++) { const s = R.range(5, 80), lat = -R.range(4, 48), p = along(s, lat), yy = Math.max(WL, H(p[0], p[1])) + R.range(0.3, 6); if (!clearOfCam(p[0], yy, p[1], 3.2)) continue; fly(p[0], yy, p[1], 0); i++; }   // the valley below the opening swoop
+    for (let i = 0, tries = 0; i < 1500 && tries < 15000; tries++) { const s = R.range(-5, LH - 8), p = along(s, R.sign() * R.range(2.6, 10)), yy = Math.max(WL, H(p[0], p[1])) + R.range(1, 4); if (!clearOfCam(p[0], yy, p[1], 2.4)) continue; fly(p[0], yy, p[1], 0); i++; }   // close by the walk, at mid height
+    for (let i = 0, tries = 0; i < 1300 && tries < 13000; tries++) { const s = R.range(45, 120), p = along(s, R.range(12, 60)), yy = Math.max(WL, H(p[0], p[1])) + R.range(1, 12); if (!clearOfCam(p[0], yy, p[1], 3)) continue; fly(p[0], yy, p[1], 0); i++; }   // the deep field across the creek that the wave rolls through
     { const yaw = towardRoute(CHIM[0], CHIM[1], 40), cy = Math.cos(yaw), sy = Math.sin(yaw); for (let i = 0; i < 26; i++) { const lx = R.range(-0.4, 0.4), lz = R.range(0.1, 0.55); fly(CHIM[0] + cy * lx + sy * lz, chimY + R.range(0.15, 1.0), CHIM[1] - sy * lx + cy * lz, 0); } }   // in the cold hearth
     // (b) on the rails and post tops
     for (let i = 0; i < 150; i++) { const r = railTops[R.int(0, railTops.length - 1)], k = R(); fly(lerp(r[0], r[2], k), DECK + 0.9 + 0.035, lerp(r[1], r[3], k), 1); }
@@ -584,7 +593,15 @@ export default {
     for (let i = 0, tries = 0; i < 2600 && tries < 30000; tries++) { const s = R.range(LH - 80, LH + 30), lat = R.range(-24, 24), p = along(s, lat), gy = Math.max(WL, H(p[0], p[1])), y = gy + R.range(0.2, 2.6); if (!clearOfCam(p[0], y, p[1], 3.5)) continue; fly(p[0], y, p[1], 4); i++; }
     const flyGeo = own(new THREE.InstancedBufferGeometry()); flyGeo.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0], 3)); flyGeo.setIndex([0, 1, 2, 0, 2, 3]);
     flyGeo.setAttribute('aP', new THREE.InstancedBufferAttribute(aP, 3)); flyGeo.setAttribute('aQ', new THREE.InstancedBufferAttribute(aQ, 3)); flyGeo.setAttribute('aR', new THREE.InstancedBufferAttribute(aR, 4)); flyGeo.instanceCount = fn;
-    const FLYU = { uTime: { value: 0 }, uPx: { value: 0.0007 }, uFogK: { value: 0.0072 }, uLock: { value: 0 }, uRand: { value: 1 }, uGap: { value: -10 }, uSize: { value: 0.13 }, uCol: { value: COL }, uFly: { value: C('#d2ff76') }, uFem: { value: C('#ffd070').multiplyScalar(1.8) }, uT: FU.uT, uWO: FU.uWO, uWD: FU.uWD };
+    // the light map: where the fireflies are, blurred over ~10 m, so their light pools on trunks, ferns, planks and water
+    { const W = 256, Dh = Math.max(64, Math.round(256 * (bz1 - bz0) / (bx1 - bx0))), A = new Float32Array(W * Dh), B = new Float32Array(W * Dh), sx = W / (bx1 - bx0), sz = Dh / (bz1 - bz0);
+      for (let i = 0; i < fn; i++) { const k = aR[i * 4 + 3]; if (k > 1.5 && k < 3.5) continue; const ix = Math.floor((aP[i * 3] - bx0) * sx), iz = Math.floor((aP[i * 3 + 2] - bz0) * sz); if (ix < 0 || iz < 0 || ix >= W || iz >= Dh) continue; A[iz * W + ix] += 1 / (1 + 0.04 * Math.max(0, aP[i * 3 + 1])); }
+      for (let pass = 0; pass < 3; pass++) { for (let z = 0; z < Dh; z++) for (let x = 0; x < W; x++) { let t = 0; for (let d = -2; d <= 2; d++) t += A[z * W + clamp(x + d, 0, W - 1)]; B[z * W + x] = t / 5; } for (let z = 0; z < Dh; z++) for (let x = 0; x < W; x++) { let t = 0; for (let d = -2; d <= 2; d++) t += B[clamp(z + d, 0, Dh - 1) * W + x]; A[z * W + x] = t / 5; } }
+      const sorted = Array.from(A).filter((v) => v > 0).sort((a, b) => a - b), top = sorted.length ? sorted[Math.floor(sorted.length * 0.95)] : 1, px = new Uint8Array(W * Dh * 4);
+      for (let i = 0; i < W * Dh; i++) { const v = Math.min(1, Math.sqrt(A[i] / top)); px[i * 4] = px[i * 4 + 1] = px[i * 4 + 2] = Math.round(v * 255); px[i * 4 + 3] = 255; }
+      const t = own(new THREE.DataTexture(px, W, Dh, THREE.RGBAFormat)); t.magFilter = t.minFilter = THREE.LinearFilter; t.needsUpdate = true;
+      FU.uLM.value = t; FU.uLMB.value.set(bx0, bz0, 1 / (bx1 - bx0), 1 / (bz1 - bz0)); }
+    const FLYU = { uLM: FU.uLM, uLMB: FU.uLMB, uFieldLvl: FU.uFieldLvl, uTime: { value: 0 }, uPx: { value: 0.0007 }, uFogK: { value: 0.0072 }, uLock: { value: 0 }, uRand: { value: 1 }, uGap: { value: -10 }, uSize: { value: 0.2 }, uCol: { value: COL }, uFly: { value: C('#d2ff76') }, uFem: { value: C('#ffd070').multiplyScalar(1.8) }, uT: FU.uT, uWO: FU.uWO, uWD: FU.uWD };
     const flyMat = (dim, streak) => own(new THREE.ShaderMaterial({ uniforms: { ...FLYU, uDim: { value: dim }, uStreak: { value: streak } }, vertexShader: FLY_VERT, fragmentShader: FLY_FRAG, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     { const a = new THREE.Mesh(flyGeo, flyMat(1, 1)), b = new THREE.Mesh(flyGeo, flyMat(0.8, 2.4)); a.frustumCulled = b.frustumCulled = false; a.renderOrder = 6; b.renderOrder = 4; base.add(a); mirror.add(b); }
     // near fireflies by the boardwalk, small and faded close in; they flash with the wave where the camera is
@@ -598,14 +615,14 @@ export default {
     await tick();
 
     // ---------------- 8. the barred owl ----------------
-    const owl = makeBird({ body: '#2a2622', belly: '#3e3830', wing: '#24201c', feather: '#1a1714', head: '#302a24', beakC: '#5a5034', scale: 0.5, own, span: 1.0, beard: false });
+    const owl = makeBird({ body: '#4a4236', belly: '#7a6c58', wing: '#403a30', feather: '#2c2620', head: '#564c40', beakC: '#8a7a50', scale: 0.7, own, span: 1.0, beard: false });
     { const kids = owl.g.children, eye = kids[4], beak = kids[5], tail = kids[6], head = new THREE.Group(); head.position.set(0, 0.12, 0.5); owl.g.add(head);
       owl.neck.scale.set(1.2, 1.2, 0.2); owl.neck.position.set(0, 0.05, 0.42);
       for (const [o, x, y, z] of [[owl.hd, 0, 0, 0.05], [eye, 0, 0.03, 0.2], [beak, 0, -0.02, 0.22]]) { owl.g.remove(o); head.add(o); o.position.set(x, y, z); }
       owl.hd.scale.set(0.2, 0.19, 0.17); eye.scale.set(1.3, 1.6, 1); beak.scale.set(0.6, 0.6, 0.4); tail.scale.set(1, 1, 0.55); owl.head = head; }
     owl.g.visible = false; scene.add(owl.g);
     const OW0 = new THREE.Vector3(), OW1 = new THREE.Vector3();
-    { const a = along(110, 15), b = along(114, 2); OW0.set(a[0], 6.6, a[1]); OW1.set(b[0], 4.4, b[1]); }
+    { const a = along(103, 9), b = along(108, -3); OW0.set(a[0], 5.6, a[1]); OW1.set(b[0], 3.4, b[1]); }
     const OW2 = SNAGTOP.clone().add(new THREE.Vector3(0, 0.12, 0));
     const bez = (k, out) => { const a = (1 - k) * (1 - k), b = 2 * k * (1 - k), c = k * k; return out.set(OW0.x * a + OW1.x * b + OW2.x * c, OW0.y * a + OW1.y * b + OW2.y * c, OW0.z * a + OW1.z * b + OW2.z * c); };
     const oP = new THREE.Vector3(), oN = new THREE.Vector3();
@@ -621,16 +638,16 @@ export default {
       pois: [
         { at: (() => { const p = along(34, -20); return [p[0], -1, p[1]]; })(), from: 0, to: uOf(2.6), fade: 0.3, weight: 0.85, steady: true },   // out and down over the creek and the valley of sparks
         { at: [CHIM[0], chimY + 1.6, CHIM[1]], from: uOf(2.6), to: uOf(6.6), fade: 0.25, weight: 0.85, steady: true },                                  // the lone chimney, fireflies in its hearth                                  // the lone chimney, fireflies in its hearth
-        { at: (tm, uu) => { const s2 = uu * PL + 34, p = along(s2, OFF(s2) + 6); return [p[0], 9, p[1]]; }, from: uOf(6.4), to: uOf(10.4), fade: 0.3, weight: 0.75 },   // the wave arriving from the ridge
-        { at: (tm, uu) => { const k = ss(12.4, 13.3, Tof(uu)); return [lerp(femSpot.x, OW2.x, k), lerp(femSpot.y, OW2.y - 0.5, k), lerp(femSpot.z, OW2.z, k)]; }, from: uOf(11), to: uOf(14.2), fade: 0.3, weight: 0.85 },   // the answer in the ferns, then the owl landing
+        { at: (tm, uu) => { const s2 = uu * PL + 26, p = along(s2, 36); return [p[0], 5, p[1]]; }, from: uOf(6.4), to: uOf(10.4), fade: 0.3, weight: 0.75 },   // the wave arriving from the ridge
+        { at: (tm, uu) => { const k = ss(11.7, 12.2, Tof(uu)), o = owl.g.visible ? owl.g.position : OW2; return [lerp(femSpot.x, o.x, k), lerp(femSpot.y, o.y - 0.3, k), lerp(femSpot.z, o.z, k)]; }, from: uOf(11), to: uOf(14.2), fade: 0.3, weight: 0.85 },   // the answer in the ferns, then the owl landing
         { at: [COL.x, 26, COL.z], from: uOf(14.2), to: uOf(16.9), fade: 0.3, weight: 0.8 },                                               // up the column
       ],
-      portal: { shape: 'circle', style: 'ring', radius: 3, color: '#d8ff9a', veil: '#0e2226', glow: 0.45, halo: true, revealDistance: 700, drawWithin: 140, drawIn: 14 },
+      portal: { shape: 'circle', style: 'ring', radius: 3, color: '#b8e890', veil: '#0e2226', glow: 0.3, halo: true, revealDistance: 700, drawWithin: 140, drawIn: 14 },
       post: { exposure: 1.0, bloom: { strength: 0.3, radius: 0.5, threshold: 0.95 }, grade: { saturation: 1.08, contrast: 1.06, tint: '#f2fff4', shadowTint: '#020a14', vignette: 0.3, grain: 0, aberration: 0 } },
       update(dt, t, camera, u) {
         if ((u || 0) < 0.02 || Tof(u || 0) > Tlive) Tlive = Tof(u || 0); else if (u > 0.8) Tlive += dt;   // in the tour's last hold the valley keeps flashing
         const T = Tlive, cp = camera.position; sky.update(dt, t, camera);
-        FU.uT.value = T; FLYU.uTime.value = t; FLYU.uLock.value = ss(3.5, 6.0, T); FLYU.uRand.value = 1 - ss(5.9, 6.3, T);
+        FU.uT.value = T; FLYU.uTime.value = t; FLYU.uLock.value = ss(3.5, 6.0, T); FLYU.uRand.value = 1 - ss(5.9, 6.3, T); FU.uFieldLvl.value = 0.08 + 0.37 * FLYU.uRand.value;
         const dCam = (cp.x - WO.x) * WD.x + (cp.z - WO.y) * WD.y; FLYU.uGap.value = gapStart(T, dCam);
         FLYU.uPx.value = 2 / ((camera.projectionMatrix.elements[5] || 1.5) * 1920);
         waterU.uTime.value = t; waterU.uCam.value.copy(cp); ftime.value = t; fset.update(dt, t, camera);

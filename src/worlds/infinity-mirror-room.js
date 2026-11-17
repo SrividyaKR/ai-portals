@@ -53,7 +53,7 @@ const camAt = (T) => [camX(T), camY(T), Z0 - V * T];
 // is the neighbours' difference unless given; the perch keys have zero velocity, so the bird slows to land and the two
 // perch keys hold it still between them.
 // ---------------------------------------------------------------------------------------------------------------------
-const PERCH = { x: 3.65, z: -63.5, r: 0.3, y0: 3.3, T0: 12.5, T1: 15.8 };   // the orb it lands on (y0: the orb's centre)
+const PERCH = { x: 3.65, z: -58, r: 0.3, y0: 3.3, T0: 12.5, T1: 15.3 };   // the orb it lands on (y0: the orb's centre)
 const PERCH_Y = PERCH.y0 + PERCH.r + 0.012;
 const BK = [
   [0.0, 1.6, 0.9, 25.8],                         // the hook: 4.5 m ahead, crossing right to left over its reflection
@@ -124,16 +124,19 @@ export default {
     const matcap = (draw) => { const c = mkCanvas(128), g = c.getContext('2d'); draw(g); const t = own(new THREE.CanvasTexture(c)); t.colorSpace = THREE.SRGBColorSpace; return t; };
     const radial = (g, stops, cx = 64, cy = 64, r = 64) => { const rg = g.createRadialGradient(cx, cy, 0, cx, cy, r); for (const [o, c] of stops) rg.addColorStop(o, c); g.fillStyle = rg; g.fillRect(0, 0, 128, 128); };
     // a glowing glass orb: the core is the light, the rim falls off, with a thin glint at the very edge
-    const orbMC = matcap((g) => radial(g, [[0, '#ffffff'], [0.42, '#f2f2f2'], [0.7, '#a8a8a8'], [0.88, '#5c5c5c'], [0.96, '#8c8c8c'], [1, '#3a3a3a']]));
+    const orbMC = matcap((g) => { radial(g, [[0, '#d8d8d8'], [0.5, '#b4b4b4'], [0.78, '#7a7a7a'], [0.92, '#4c4c4c'], [0.97, '#6e6e6e'], [1, '#3a3a3a']]); radial(g, [[0, 'rgba(255,255,255,1)'], [0.35, 'rgba(255,255,255,0.55)'], [1, 'rgba(255,255,255,0)']], 48, 42, 30); });   // a glass sphere: a highlight up and left, the edge falling dark
     // the swallow: a mid body tone with a cool rim, so the dark back still outlines itself against the orbs
     const birdMC = matcap((g) => {
-      radial(g, [[0, '#c8c8d0'], [0.55, '#b8b8c6'], [0.8, '#cfd2e0'], [0.93, '#c0c4d8'], [1, '#b4bad0']]);
-      const hl = g.createRadialGradient(46, 38, 0, 46, 38, 30); hl.addColorStop(0, 'rgba(255,255,255,0.35)'); hl.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = hl; g.fillRect(0, 0, 128, 128);
+      radial(g, [[0, '#8a8a96'], [0.55, '#7a7a88'], [0.8, '#8e8ea2'], [0.93, '#b0b0c4'], [1, '#8a8aa0']]);
+      // the rim takes the room's colours: teal from one side, dusk pink from the other, ochre from above
+      for (const [cx, cy, col] of [[4, 70, '63,207,154'], [124, 66, '240,138,168'], [64, 2, '217,164,65'], [64, 126, '74,124,255']]) { const rg = g.createRadialGradient(cx, cy, 0, cx, cy, 46); rg.addColorStop(0, `rgba(${col},0.8)`); rg.addColorStop(1, `rgba(${col},0)`); g.fillStyle = rg; g.fillRect(0, 0, 128, 128); }
+      const hl = g.createRadialGradient(46, 38, 0, 46, 38, 22); hl.addColorStop(0, 'rgba(255,255,255,0.45)'); hl.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = hl; g.fillRect(0, 0, 128, 128);
     });
     // black lacquer: nearly black with one soft band of light along the top and a dim rim
     const lacquerMC = matcap((g) => {
-      radial(g, [[0, '#0e0c14'], [0.75, '#14121c'], [0.92, '#4a4460'], [1, '#1a1724']]);
-      const band = g.createLinearGradient(0, 10, 0, 60); band.addColorStop(0, 'rgba(150,140,190,0)'); band.addColorStop(0.5, 'rgba(190,180,230,0.12)'); band.addColorStop(1, 'rgba(150,140,190,0)'); g.fillStyle = band; g.fillRect(0, 0, 128, 128);
+      radial(g, [[0, '#1a1822'], [0.7, '#24222e'], [0.9, '#3a3648'], [1, '#22202c']]);
+      // a soft broad sheen over the upper half (where a slab's top samples), uneven so no two slabs read alike
+      const band = g.createLinearGradient(0, 4, 0, 70); band.addColorStop(0, 'rgba(200,195,230,0.05)'); band.addColorStop(0.45, 'rgba(200,195,230,0.32)'); band.addColorStop(1, 'rgba(200,195,230,0)'); g.fillStyle = band; g.fillRect(0, 0, 128, 128);
     });
     const metalMC = matcap((g) => radial(g, [[0, '#4a4650'], [0.5, '#6a6474'], [0.8, '#2a2630'], [0.95, '#9a90a8'], [1, '#3a3640']], 54, 50, 80));
 
@@ -153,7 +156,7 @@ export default {
     // =================================================================================================================
     // THE SWALLOW (in `base`; every cell holds a clone whose transforms are copied from it each frame)
     // =================================================================================================================
-    const BLUE_BACK = [0.16, 0.32, 1.25], BELLY = [2.0, 1.85, 1.55], RUST = [1.9, 0.62, 0.2], DARK = [0.05, 0.05, 0.07];
+    const BLUE_BACK = [0.035, 0.06, 0.24], BELLY = [1.55, 1.42, 1.2], RUST = [1.45, 0.42, 0.12], DARK = [0.05, 0.05, 0.07];   // blue-black back, pale belly, rust throat
     const paint = (geo, fn) => { const p = geo.attributes.position, col = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const c = fn(p.getX(i), p.getY(i), p.getZ(i)); col[i * 3] = c[0]; col[i * 3 + 1] = c[1]; col[i * 3 + 2] = c[2]; } geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); return geo; };
     // body: an ellipsoid along +z (forward), slimmer behind; blue back, buff belly, rust throat and forehead
     const bodyG = own(new THREE.SphereGeometry(1, 18, 12));
@@ -162,10 +165,10 @@ export default {
       for (let i = 0; i < p.count; i++) {
         const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = z < 0 ? 1 + 0.55 * z : 1 - 0.18 * z * z;
         p.setXYZ(i, x * 0.04 * k, y * 0.036 * k + (z > 0.45 ? 0.008 * (z - 0.45) / 0.55 : 0), z * 0.118);
-        let c = y > 0.05 ? BLUE_BACK : BELLY;   // a broad pale belly that shows from the side
+        let c = y > -0.3 ? BLUE_BACK : BELLY;   // the pale belly is the underside only
         if (z > 0.55 && y < 0.3 && y > -0.75) c = RUST;            // the throat
         if (z > 0.86 && y > 0.25) c = RUST;                         // the forehead
-        if (y > 0.5 && z > -0.3 && z < 0.5) c = [0.16, 0.34, 1.35];  // the gloss along the back
+        if (y > 0.5 && z > -0.3 && z < 0.5) c = [0.06, 0.12, 0.48];  // the steel-blue gloss along the back
         col[i * 3] = c[0]; col[i * 3 + 1] = c[1]; col[i * 3 + 2] = c[2];
       }
       bodyG.setAttribute('color', new THREE.BufferAttribute(col, 3)); bodyG.computeVertexNormals();
@@ -173,15 +176,15 @@ export default {
     const beakG = own(paint(new THREE.ConeGeometry(0.009, 0.024, 6).rotateX(Math.PI / 2).translate(0, 0.006, 0.125), () => DARK));
     const shapeGeo = (pts, col) => { const s = new THREE.Shape(); s.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) s.lineTo(pts[i][0], pts[i][1]); return paint(new THREE.ShapeGeometry(s).rotateX(Math.PI / 2), col); };
     // the forked tail: two long outer streamers with a deep notch between them
-    const tailG = own(shapeGeo([[-0.022, -0.075], [-0.075, -0.33], [-0.05, -0.31], [-0.022, -0.18], [0, -0.155], [0.022, -0.18], [0.05, -0.31], [0.075, -0.33], [0.022, -0.075]],
-      (x, y, z) => (z < -0.26 ? [0.06, 0.1, 0.5] : BLUE_BACK)));
+    const tailG = own(shapeGeo([[-0.024, -0.075], [-0.09, -0.47], [-0.074, -0.465], [-0.02, -0.2], [0, -0.13], [0.02, -0.2], [0.074, -0.465], [0.09, -0.47], [0.024, -0.075]],   // long streamers, deeply split
+      (x, y, z) => (z < -0.3 ? [0.03, 0.05, 0.2] : BLUE_BACK)));
     // the wings: a short arm and a long swept hand (sickle-shaped, pointed), right wing along +x; the left is its mirror
-    const wingCol = (x, y, z) => (x * x > 0.02 ? [0.07, 0.14, 0.7] : BLUE_BACK);
+    const wingCol = (x, y, z) => (x * x > 0.02 ? [0.03, 0.05, 0.2] : BLUE_BACK);
     const armG = own(shapeGeo([[0, 0.032], [0.122, 0.028], [0.124, -0.046], [0, -0.052]], wingCol));
-    const handG = own(shapeGeo([[0, 0.028], [0.08, 0.02], [0.17, -0.055], [0.238, -0.15], [0.15, -0.088], [0.06, -0.062], [0, -0.046]], (x) => (x > 0.15 ? [0.05, 0.09, 0.5] : [0.08, 0.17, 0.8])));
+    const handG = own(shapeGeo([[0, 0.028], [0.08, 0.02], [0.17, -0.055], [0.238, -0.15], [0.15, -0.088], [0.06, -0.062], [0, -0.046]], (x) => (x > 0.15 ? [0.025, 0.035, 0.14] : [0.04, 0.07, 0.26])));
     const armGL = own(armG.clone().scale(-1, 1, 1)), handGL = own(handG.clone().scale(-1, 1, 1));
     const birdMat = own(new THREE.MeshMatcapMaterial({ matcap: birdMC, vertexColors: true, side: THREE.DoubleSide }));
-    const BIRD_S = 2.4;   // about 1.8 m across the wings: a swallow made readable at 9:16 among the orbs
+    const BIRD_S = 1.6;   // about 1.8 m across the wings: a swallow made readable at 9:16 among the orbs
     const bird = new THREE.Group(); bird.name = 'swallow';
     const body = new THREE.Mesh(bodyG, birdMat), beak = new THREE.Mesh(beakG, birdMat), tail = new THREE.Mesh(tailG, birdMat);
     body.position.set(0, 0, 0); tail.position.set(0, 0.004, 0);
@@ -306,7 +309,7 @@ export default {
     // =================================================================================================================
     const SLAB_L = 1.6, SLAB_GAP = 0.04, SLAB_W = 0.9, SLAB_T = 0.05;
     const slabG = own(new THREE.BoxGeometry(SLAB_W, SLAB_T, SLAB_L));
-    const slabMat = own(new THREE.MeshMatcapMaterial({ matcap: lacquerMC, color: '#ffffff' }));
+    const slabMat = own(new THREE.MeshMatcapMaterial({ matcap: lacquerMC, color: '#ffffff', transparent: true, opacity: 0.6 }));   // glossy lacquer: the water's reflection shows through, tinted by the orbs near it
     const rimG = own(new THREE.BoxGeometry(0.014, 0.014, SLAB_L - 0.06));
     const rimMat = own(new THREE.MeshBasicMaterial({ color: '#ffffff' }));
     const slabs = [];
@@ -316,7 +319,8 @@ export default {
       slabs.push({ x, z, yaw, lift: R.range(-0.01, 0.01), roll: R.range(-0.4, 0.4) * Math.PI / 180, slot: R() < 0.5 ? 0 : 1 });
     }
     const SN = slabs.length;
-    const slabIM = new THREE.InstancedMesh(slabG, slabMat, SN), rimIM = new THREE.InstancedMesh(rimG, rimMat, SN * 2);
+    const slabIM = new THREE.InstancedMesh(slabG, slabMat, SN); slabIM.renderOrder = 3; for (let i = 0; i < SN; i++) slabIM.setColorAt(i, _c.setRGB(1, 1, 1));
+    const rimIM = new THREE.InstancedMesh(rimG, rimMat, SN * 2);
     {
       const e = new THREE.Euler(), off = new THREE.Vector3();
       slabs.forEach((s, i) => {
@@ -340,7 +344,7 @@ export default {
     // =================================================================================================================
     const seamZ = []; for (let z = Z_NEAR + 2; z > Z_FAR - 4; z -= R.range(1.1, 1.7)) seamZ.push(z);
     const seamG = own(new THREE.BoxGeometry(1, 1, 1));
-    const seamMat = own(new THREE.MeshBasicMaterial({ color: '#3a3d55' }));   // a faint cool sheen: the walls read as mirror panels
+    const seamMat = own(new THREE.MeshBasicMaterial({ color: '#0c0b14' }));
     const SEAMS = seamZ.length * 3 + 4;
     const seams = new THREE.InstancedMesh(seamG, seamMat, SEAMS);
     {
@@ -350,10 +354,6 @@ export default {
         _p.set(0, H - 0.01, z); _q.identity(); seams.setMatrixAt(i++, _m.compose(_p, _q, _s.set(2 * W, 0.02, 0.022)));
       }
       // the long seams where the walls meet the ceiling and the water
-      for (const sx of [-1, 1]) {
-        _p.set(sx * (W - 0.01), H - 0.01, (Z_NEAR + Z_FAR) / 2); _q.identity(); seams.setMatrixAt(i++, _m.compose(_p, _q, _s.set(0.03, 0.03, Z_NEAR - Z_FAR + 8)));
-        _p.set(sx * (W - 0.01), 0.01, (Z_NEAR + Z_FAR) / 2); seams.setMatrixAt(i++, _m.compose(_p, _q, _s.set(0.03, 0.03, Z_NEAR - Z_FAR + 8)));
-      }
       seams.count = i;
     }
 
@@ -383,17 +383,20 @@ export default {
         g.matrix.premultiply(jit);
       }
       const ro = orderOf(j);
+      const nl = j === -1 ? Math.abs(k) + 0.25 : n;   // the water is a near-perfect mirror: its row of copies is barely dimmed
       const water = k === 0 && j === -1, cn = water ? ON : NT;   // the hoop is not copied by the mirrors (only its reflection in the water)
-      const cOrbs = new THREE.InstancedMesh(geoFor(n), atLevel('orb', orbMat, n), ON); cOrbs.instanceMatrix = orbs.instanceMatrix; cOrbs.instanceColor = orbs.instanceColor; cOrbs.count = cn;
-      const cHalo = new THREE.InstancedMesh(haloGeo, atLevel('halo', haloMat, n, makeHaloMat), ON); cHalo.instanceMatrix = orbs.instanceMatrix; cHalo.instanceColor = orbs.instanceColor; cHalo.count = cn; cHalo.renderOrder = ro;
-      const cThr = new THREE.LineSegments(thrG, atLevel('thr', thrMat, n)); cThr.renderOrder = ro;
-      const cSlab = new THREE.InstancedMesh(slabG, atLevel('slab', slabMat, n), SN); cSlab.instanceMatrix = slabIM.instanceMatrix;
-      const cRim = new THREE.InstancedMesh(rimG, atLevel('rim', rimMat, n), SN * 2); cRim.instanceMatrix = rimIM.instanceMatrix; cRim.instanceColor = rimIM.instanceColor;
+      const cOrbs = new THREE.InstancedMesh(geoFor(n), atLevel('orb', orbMat, nl), ON); cOrbs.instanceMatrix = orbs.instanceMatrix; cOrbs.instanceColor = orbs.instanceColor; cOrbs.count = cn;
+      const cHalo = new THREE.InstancedMesh(haloGeo, atLevel('halo', haloMat, nl, makeHaloMat), ON); cHalo.instanceMatrix = orbs.instanceMatrix; cHalo.instanceColor = orbs.instanceColor; cHalo.count = cn; cHalo.renderOrder = ro;
+      const cThr = new THREE.LineSegments(thrG, atLevel('thr', thrMat, nl)); cThr.renderOrder = ro;
+      const cSlab = new THREE.InstancedMesh(slabG, atLevel('slab', slabMat, n), SN); cSlab.instanceMatrix = slabIM.instanceMatrix; cSlab.instanceColor = slabIM.instanceColor; cSlab.renderOrder = ro;
+      const cRim = new THREE.InstancedMesh(rimG, atLevel('rim', rimMat, nl), SN * 2); cRim.instanceMatrix = rimIM.instanceMatrix; cRim.instanceColor = rimIM.instanceColor;
       const cSeam = new THREE.InstancedMesh(seamG, atLevel('seam', seamMat, n), SEAMS); cSeam.instanceMatrix = seams.instanceMatrix; cSeam.count = seams.count;
       const cHoop = new THREE.Mesh(hoopG, atLevel('hoop', hoopMat, n)); cHoop.position.copy(hoop.position);
       const cBird = bird.clone(true); const bm = atLevel('bird', birdMat, n, (m) => { const c = birdMat.clone(); c.color.setScalar(Math.pow(0.8, m)); return c; });   // the bird's copies fade slowly: the flock cBird.traverse((o) => { if (o.isMesh) o.material = bm; });
       const nodes = []; cBird.traverse((o) => nodes.push(o));
-      for (const o of [cOrbs, cHalo, cThr, cSlab, cRim, cSeam, cBird]) g.add(o);
+      for (const o of [cOrbs, cHalo, cThr, cRim, cBird]) g.add(o);
+      if (j !== -1) g.add(cSlab);       // under the water the slabs are left out, so the glossy slabs show the orbs' reflection
+      if (n <= 1 && j >= 0) g.add(cSeam);   // seams only in the nearest copies: the mirrors show orbs repeating, not their frames
       if (water) g.add(cHoop);
       g.traverse((o) => { o.frustumCulled = false; });
       g.matrixWorldNeedsUpdate = true;
@@ -408,10 +411,11 @@ export default {
     // (the floor seen in the ceiling) and y = -2H.
     // =================================================================================================================
     const ringU = []; for (let i = 0; i < 6; i++) ringU.push(new THREE.Vector4(0, 0, -99, 0));
-    const waterU = { uT: { value: 0 }, uTime: { value: 0 }, uRings: { value: ringU }, uCrest: { value: new THREE.Color() }, uBase: { value: new THREE.Color('#05040c') } };
+    const POOLS = 24, poolP = [], poolC = []; for (let i = 0; i < POOLS; i++) { poolP.push(new THREE.Vector4(0, -999, 5, 0)); poolC.push(new THREE.Color(0, 0, 0)); }
+    const waterU = { uPool: { value: poolP }, uPoolC: { value: poolC }, uT: { value: 0 }, uTime: { value: 0 }, uRings: { value: ringU }, uCrest: { value: new THREE.Color() }, uBase: { value: new THREE.Color('#05040c') } };
     const WATER_VERT = /* glsl */`varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
     const WATER_FRAG = /* glsl */`
-      uniform float uT, uTime, uJ, uY; uniform vec4 uRings[6]; uniform vec3 uCrest, uBase; varying vec3 vW;
+      uniform float uT, uTime, uJ, uY; uniform vec4 uRings[6]; uniform vec4 uPool[${24}]; uniform vec3 uPoolC[${24}]; uniform vec3 uCrest, uBase; varying vec3 vW;
       const float W = ${W.toFixed(1)};
       float foldX(float x){ float y = mod(x + W, 4.0 * W); return W - abs(y - 2.0 * W); }
       void main(){
@@ -433,7 +437,11 @@ export default {
         float a = mix(0.1, 0.35, pow(cosT, 0.7));       // looking down: dark water; at a grazing look: the reflection
         a = clamp(a - 0.12 * amb * (1.0 - cosT) + 0.35 * sl, 0.0, 0.92);
         vec3 col = uBase + uCrest * max(h, 0.0) * 0.55 + uCrest * 0.025 * amb;
-        gl_FragColor = vec4(col * dim, a);
+        // light pooling on the water under the nearest orbs (x folded, so every mirrored floor has its pools too)
+        vec3 pool = vec3(0.0);
+        for (int i = 0; i < ${24}; i++) { vec4 q = uPool[i]; vec2 dd = p - q.xy; float R = 0.3 + 0.14 * q.z; pool += uPoolC[i] * q.w * exp(-dot(dd, dd) / (R * R)) * (0.8 + 0.4 * amb); }
+        float pl = dot(pool, vec3(0.3, 0.5, 0.2));
+        gl_FragColor = vec4((col + pool / max(a + 0.25 * pl, 0.05)) * dim, clamp(a + 0.25 * pl, 0.0, 0.95));
       }`;
     const waterPlane = (y, J, flip) => {
       const m = own(new THREE.ShaderMaterial({ uniforms: { ...waterU, uJ: { value: J }, uY: { value: y } }, vertexShader: WATER_VERT, fragmentShader: WATER_FRAG, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
@@ -466,10 +474,10 @@ export default {
     [[0.32, '#8a86c0', 0.06], [0.52, '#7a90b8', 0.05], [0.78, '#a088b0', 0.04]].forEach(([y, col, op], i) => {
       const t = own(mistT.clone()); t.needsUpdate = true; t.repeat.set(1.5, 14); t.offset.set(R(), R());
       const m = own(new THREE.MeshBasicMaterial({ color: col, alphaMap: t, transparent: true, opacity: op * 8, depthWrite: false, blending: THREE.AdditiveBlending }));
-      m.color.multiplyScalar(0.125);
+      m.color.multiplyScalar(0.2);
       const mesh = new THREE.Mesh(own(new THREE.PlaneGeometry(2 * W, Z_NEAR - Z_FAR).rotateX(-Math.PI / 2)), m);
       mesh.position.set(0, y, (Z_NEAR + Z_FAR) / 2); mesh.renderOrder = 4; mesh.frustumCulled = false; scene.add(mesh);
-      mists.push({ t, vx: R.range(-0.004, 0.004), vz: 0.004 + i * 0.002 });
+      mists.push({ m, base: m.color.clone(), t, vx: R.range(-0.004, 0.004), vz: 0.004 + i * 0.002 });
     });
 
     // =================================================================================================================
@@ -499,7 +507,7 @@ export default {
       fw.set(-0.35, 0.12, -1).normalize(); rt.crossVectors(Y, fw).normalize(); up.crossVectors(fw, rt);
       qPerch.setFromRotationMatrix(basis.makeBasis(rt, up, fw));
     }
-    const orbPos = new THREE.Vector3();
+    const orbPos = new THREE.Vector3(), WHITE = new THREE.Color(1, 1, 1);
     const weatherOf = (T, z, t) => clamp(smoothstep(7, 12, T) + 0.22 * Math.sin(z * 0.045 - t * 0.3), 0, 1);
 
     const pose = (T, t) => {
@@ -558,12 +566,32 @@ export default {
         let k = (1.9 + 0.35 * breath) * d.far;
         if (wave > -100) { const s = (Z0 - z) - wave; k *= 1 + 0.75 * Math.exp(-(s * s) / (2 * WAVE_W * WAVE_W)) * (1 - smoothstep(4, 8, T)); }
         if (d.hoop) k *= 0.9 + 0.25 * Math.sin(d.a * 3 - t * 0.6);
+        // the landing: a sphere of light spreads out from the perch orb through the room (and every copy) at 9 m/s
+        if (T > PERCH.T0 && T < 16.5) { const dd = Math.hypot(x - PERCH.x, y - PERCH.y0, z - PERCH.z), s = dd - 9 * (T - PERCH.T0); k *= 1 + 0.7 * Math.exp(-(s * s) / 8) * (1 - smoothstep(14.8, 16.5, T)); }
+        // as the swallow nears the ring, a warm wave comes back up the hall from it, toward us, at 22 m/s
+        if (T > 16.4) { const s = (z - PZ) - 22 * (T - 16.4); const e = Math.exp(-(s * s) / 18); k *= 1 + 0.8 * e; _c.lerp(C.ochre, 0.35 * e); }
+        if (d.perch && T > PERCH.T0) k *= 1 + 0.6 * Math.exp(-(T - PERCH.T0) * 1.2);
         orbs.setColorAt(i, _c.multiplyScalar(k));
       }
       orbs.instanceMatrix.needsUpdate = true; orbs.instanceColor.needsUpdate = true; thrG.attributes.position.needsUpdate = true;
 
       // ---- water, mist, motes ----
       waterU.uT.value = T; waterU.uTime.value = t;
+      // the pools: the brightest nearby orbs, by size over height
+      {
+        const cz = Z0 - V * T, cand = [];
+        for (let i = 0; i < ON; i++) { const d = od[i]; if (d.z < cz - 45 || d.z > cz + 6 || d.y > 5) continue; cand.push([d.r / (0.6 + d.y * 0.35), i]); }
+        cand.sort((a, b) => b[0] - a[0]);
+        for (let q = 0; q < POOLS; q++) {
+          if (q >= cand.length) { poolP[q].w = 0; continue; }
+          const i = cand[q][1], d = od[i]; orbs.getMatrixAt(i, _m); _p.setFromMatrixPosition(_m);
+          poolP[q].set(_p.x, _p.z, _p.y, Math.min(0.1, cand[q][0] * 0.3)); orbs.getColorAt(i, poolC[q]);
+        }
+      }
+      const wC = _c.copy(C.teal).lerp(C.pink, smoothstep(7, 12, T));
+      wC.multiplyScalar(0.2); for (const m of mists) m.m.color.copy(m.base).lerp(wC, 0.5);   // the mist catches the room's colour (scaled as the mist is)
+      for (let i = 0; i < SN; i++) { const sw = weatherOf(T, slabs[i].z, t); slabIM.setColorAt(i, _c.copy(slabs[i].slot ? C.teal : C.blue).lerp(slabs[i].slot ? C.ochre : C.pink, sw).lerp(WHITE, 0.45).multiplyScalar(0.8)); }
+      slabIM.instanceColor.needsUpdate = true;
       waterU.uCrest.value.copy(C.teal).lerp(C.pink, smoothstep(7, 12, T)).multiplyScalar(0.9);
     };
 
@@ -586,11 +614,11 @@ export default {
         { at: [DIP.x, 0, DIP.z - 0.4], from: U(2.6), to: U(4.6), fade: 0.3, weight: 0.7 },                // the rings of the drink
         { at: sideLook, from: U(4.5), to: U(7.0), fade: 0.35, weight: 1 },                                 // a real turn out through the left mirror: the bird's copies side by side
         { at: climbLook, from: U(7.3), to: U(11.4), fade: 0.25, weight: 1 },                               // the climb: the gaze tips up 22-40 deg, the ceiling copies stack as a column
-        { at: birdLook(), from: U(12.4), to: U(15.1), fade: 0.25, weight: 0.9 },                         // the perched bird
+        { at: birdLook(), from: U(12.2), to: U(14.4), fade: 0.25, weight: 0.95 },                         // the perched bird
         { at: birdLook(), from: U(16.6), to: U(19.4), fade: 0.3, weight: 0.6 },                         // it swoops past on the right
       ],
       portal: { shape: 'circle', style: 'ring', radius: PR, color: '#f0b6c8', veil: '#f0b6c8', glow: 0.55, halo: false, revealDistance: 700 },
-      post: { exposure: 1.1, bloom: { strength: 0.3, radius: 0.5, threshold: 0.95 }, grade: { saturation: 1.05, contrast: 1.05, tint: '#fbf7ff', shadowTint: '#06040f', vignette: 0.3, grain: 0, aberration: 0 } },
+      post: { exposure: 1.2, bloom: { strength: 0.3, radius: 0.5, threshold: 0.95 }, grade: { saturation: 1.05, contrast: 1.05, tint: '#fbf7ff', shadowTint: '#06040f', vignette: 0.3, grain: 0, aberration: 0 } },
       update(dt, t, camera, u) {
         const T = clamp(u ?? 0, 0, 1) * DUR;
         pose(T, t);
