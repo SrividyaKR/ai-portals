@@ -53,7 +53,7 @@ const camAt = (T) => [camX(T), camY(T), Z0 - V * T];
 // is the neighbours' difference unless given; the perch keys have zero velocity, so the bird slows to land and the two
 // perch keys hold it still between them.
 // ---------------------------------------------------------------------------------------------------------------------
-const PERCH = { x: 3.0, z: -66, r: 0.3, y0: 3.0, T0: 12.5, T1: 15.3 };   // nearer the path (3.3 m), still outside the 2.6 m tube   // the orb it lands on (y0: the orb's centre)
+const PERCH = { x: 3.4, z: -62, r: 0.3, y0: 1.9, T0: 12.5, T1: 15.3 };   // below the eye (we look down at the bird against the lit water), 3.7 m right of the path (low-orb rule 3.5 m)   // the orb it lands on (y0: the orb's centre)
 const PERCH_Y = PERCH.y0 + PERCH.r + 0.012;
 const BK = [
   [0.0, 1.6, 0.9, 25.8],                         // the hook: 4.5 m ahead, crossing right to left over its reflection
@@ -69,11 +69,11 @@ const BK = [
   [11.6, 2.3, 5.4, -54.5],
   [PERCH.T0, PERCH.x, PERCH_Y, PERCH.z, [0, 0, 0]],
   [PERCH.T1, PERCH.x, PERCH_Y, PERCH.z, [0, 0, 0]],
-  [16.4, 3.0, 4.0, -70.5],
-  [17.0, 2.0, 4.6, -77.0],
-  [18.2, 0.9, 3.9, -89.0],
-  [19.3, 0.5, 3.35, PZ],                         // through the ring, a little right of and above its centre
-  [19.7, 0.4, 3.3, PZ - 4.5],
+  [16.2, 2.6, 3.4, -71.0],
+  [17.0, 1.0, 3.8, -79.0],                       // ahead of us, crossing into the middle of the frame
+  [18.0, 0.5, 3.3, -88.0],
+  [18.6, 0.4, 3.2, PZ],                          // through the ring, a little right of and above its centre
+  [19.0, 0.3, 3.2, PZ - 4.5],
 ];
 const _bt0 = [0, 0, 0], _bt1 = [0, 0, 0];
 function keyTangent(i, out) {
@@ -329,7 +329,7 @@ export default {
       void main(){
         vec3 V = normalize(cameraPosition - vW); float fr = pow(1.0 - abs(dot(normalize(vN), V)), 2.0);
         vec3 pool = vec3(0.0);
-        for (int i = 0; i < 24; i++) { vec4 q = uPool[i]; vec2 dd = vL.xz - q.xy; float R = 0.45 + 0.2 * q.z; pool += uPoolC[i] * q.w * exp(-dot(dd, dd) / (R * R)); }
+        for (int i = 0; i < 24; i++) { vec4 q = uPool[i]; vec2 dd = vL.xz - q.xy; float R = 0.28 + 0.1 * q.z; pool += uPoolC[i] * q.w * exp(-dot(dd, dd) / (R * R)); }
         // a slow uneven sheen across each slab, so no two read alike
         float sh = 0.5 + 0.5 * sin(vL.z * 1.3 + vL.x * 2.7 + uTime * 0.2);
         vec3 col = vTint * (0.02 + 0.035 * fr + 0.03 * sh) + pool * 3.0;   // the light is the orbs' pooled light, not a glowing strip
@@ -423,7 +423,7 @@ export default {
       const cBird = bird.clone(true); const bm = atLevel('bird', birdMat, n, (m) => { const c = birdMat.clone(); c.color.setScalar(Math.pow(0.8, m)); return c; });   // the bird's copies fade slowly: the flock cBird.traverse((o) => { if (o.isMesh) o.material = bm; });
       const nodes = []; cBird.traverse((o) => nodes.push(o));
       for (const o of [cOrbs, cHalo, cThr, cRim, cBird]) g.add(o);
-      if (j !== -1) g.add(cSlab);       // under the water the slabs are left out, so the glossy slabs show the orbs' reflection
+      if (j !== -1 && n < 2) g.add(cSlab);       // under the water the slabs are left out, so the glossy slabs show the orbs' reflection
       if (n <= 1 && j >= 0) g.add(cSeam);   // seams only in the nearest copies: the mirrors show orbs repeating, not their frames
       if (water) g.add(cHoop);
       g.traverse((o) => { o.frustumCulled = false; });
@@ -451,23 +451,25 @@ export default {
         float k = floor((vW.x + W) / (2.0 * W) + 0.0);   // which copy across the walls this stretch of water is
         float n = abs(k) + uJ, dim = pow(${DIM.toFixed(3)}, n);
         vec2 p = vec2(foldX(vW.x), vW.z);
-        // ripple rings: a travelling crest train behind each front
+        // ripple rings: a travelling crest train behind each front; the true ring and its first mirror image only
+        float rf = (abs(k) < 0.5 ? 1.0 : (abs(k) < 1.5 ? 0.35 : 0.0)) * (uJ > 0.1 ? 0.3 : 1.0);
         float h = 0.0, sl = 0.0;
         for (int i = 0; i < 6; i++) {
           vec4 r = uRings[i]; float age = uT - r.z; if (age <= 0.0 || r.w <= 0.0) continue;
           float d = length(p - r.xy), s = d - 1.6 * age;
-          float env = exp(-s * s * 0.9) * r.w * exp(-age * 0.32) * smoothstep(0.0, 0.25, age) * smoothstep(-0.2, 0.6, d);
+          float env = exp(-s * s * 6.0) * rf * r.w * exp(-age * 0.8) * smoothstep(0.0, 0.25, age) * smoothstep(-0.2, 0.6, d);
           float ph = s * 20.0; h += env * sin(ph); sl += env * pow(max(sin(ph), 0.0), 8.0);   // two or three thin crests
         }
         // a slow breath over the whole surface, so the reflection never sits dead still
         float amb = 0.5 + 0.5 * sin(vW.x * 2.1 + uTime * 0.55) * sin(vW.z * 1.7 - uTime * 0.4);
         float a = mix(0.1, 0.35, pow(cosT, 0.7));       // looking down: dark water; at a grazing look: the reflection
         a = clamp(a - 0.12 * amb * (1.0 - cosT) + 0.22 * h, 0.0, 0.92);   // the reflection shivers in rings: the sheet thickens and thins with the ripple
-        vec3 col = uBase + uCrest * sl * 0.15 / max(a, 0.1) + uCrest * 0.025 * amb;
+        vec3 col = uBase + uCrest * 0.025 * amb;
         // light pooling on the water under the nearest orbs (x folded, so every mirrored floor has its pools too)
         vec3 pool = vec3(0.0);
-        for (int i = 0; i < ${24}; i++) { vec4 q = uPool[i]; vec2 dd = p - q.xy; float R = 0.3 + 0.14 * q.z; pool += uPoolC[i] * q.w * exp(-dot(dd, dd) / (R * R)) * (0.8 + 0.4 * amb); }
+        for (int i = 0; i < ${24}; i++) { vec4 q = uPool[i]; vec2 dd = p - q.xy; float R = 0.2 + 0.08 * q.z; pool += uPoolC[i] * q.w * exp(-dot(dd, dd) / (R * R)) * (0.8 + 0.4 * amb); }
         float pl = dot(pool, vec3(0.3, 0.5, 0.2));
+        col += (uCrest * 0.05 + pool * 3.0) * sl * 0.15 / max(a, 0.1);   // a crest catches light where it crosses the pooled light
         gl_FragColor = vec4((col + pool / max(a + 0.25 * pl, 0.05)) * dim, clamp(a + 0.25 * pl, 0.0, 0.95));
       }`;
     const waterPlane = (y, J, flip) => {
@@ -533,8 +535,8 @@ export default {
     const PEND_L = H - PERCH.y0;
     const perchSwing = (T) => {
       let th = 0;
-      if (T > PERCH.T0) { const s = T - PERCH.T0; th += 0.12 * Math.exp(-s / 2.6) * Math.sin(TAU * 0.3 * s); }
-      if (T > PERCH.T1) { const s = T - PERCH.T1; th -= 0.08 * Math.exp(-s / 2.6) * Math.sin(TAU * 0.3 * s); }
+      if (T > PERCH.T0) { const s = T - PERCH.T0; th += 0.09 * Math.exp(-s / 2.6) * Math.sin(TAU * 0.3 * s); }
+      if (T > PERCH.T1) { const s = T - PERCH.T1; th -= 0.06 * Math.exp(-s / 2.6) * Math.sin(TAU * 0.3 * s); }
       return th;
     };
     const perchPos = (T, out) => { const th = perchSwing(T); return out.set(PERCH.x + swingDir.x * PEND_L * Math.sin(th), H - PEND_L * Math.cos(th), PERCH.z + swingDir.z * PEND_L * Math.sin(th)); };
@@ -562,7 +564,7 @@ export default {
       acc.copy(bq).add(bm2).addScaledVector(birdAt(T, rt), -2).multiplyScalar(1 / (0.06 * 0.06));
       if (T < 0.07) acc.set(0, 0, 0);
       acc.addScaledVector(fw, -acc.dot(fw));
-      if (acc.length() > 11) acc.setLength(11);
+      if (acc.length() > 6) acc.setLength(6);
       up.copy(Y).multiplyScalar(9.8).add(acc).normalize();
       rt.crossVectors(up, fw).normalize(); up.crossVectors(fw, rt);
       qFly.setFromRotationMatrix(basis.makeBasis(rt, up, fw));
@@ -606,7 +608,7 @@ export default {
         if (T > PERCH.T0 && T < 16.5) { const dd = Math.hypot(x - PERCH.x, y - PERCH.y0, z - PERCH.z), s = dd - 9 * (T - PERCH.T0); k *= 1 + 1.5 * Math.exp(-(s * s) / 3) * (1 - smoothstep(14.8, 16.5, T)); }
         // as the swallow nears the ring, a warm wave comes back up the hall from it, toward us, at 22 m/s
         if (T > 16.4) { const s = (z - PZ) - 22 * (T - 16.4); const e = Math.exp(-(s * s) / 18); k *= 1 + 0.8 * e; _c.lerp(C.ochre, 0.6 * e); }
-        if (d.perch && T > PERCH.T0) k *= 1 + 0.6 * Math.exp(-(T - PERCH.T0) * 1.2);
+        if (d.perch && T > PERCH.T0) k *= 1 + 1.5 * Math.exp(-(T - PERCH.T0) * 1.7);   // the landing: the orb flares to about 2.5x and settles in ~0.6 s
         orbs.setColorAt(i, _c.multiplyScalar(k));
       }
       orbs.instanceMatrix.needsUpdate = true; orbs.instanceColor.needsUpdate = true; thrG.attributes.position.needsUpdate = true;
@@ -621,12 +623,12 @@ export default {
         for (let q = 0; q < POOLS; q++) {
           if (q >= cand.length) { poolP[q].w = 0; continue; }
           const i = cand[q][1], d = od[i]; orbs.getMatrixAt(i, _m); _p.setFromMatrixPosition(_m);
-          poolP[q].set(_p.x, _p.z, _p.y, Math.min(0.1, cand[q][0] * 0.3)); orbs.getColorAt(i, poolC[q]);
+          poolP[q].set(_p.x, _p.z, _p.y, Math.min(0.24, cand[q][0] * 0.7)); orbs.getColorAt(i, poolC[q]);
         }
       }
       const wC = _c.copy(C.teal).lerp(C.pink, smoothstep(7, 12, T));
       birdMat.color.setRGB(1, 1, 1).lerp(wC, 0.35).multiplyScalar(1.15); slabU.uTime.value = t;
-      wC.multiplyScalar(0.2); for (const m of mists) m.m.color.copy(m.base).lerp(wC, 0.5);   // the mist catches the room's colour (scaled as the mist is)
+      wC.multiplyScalar(0.2); for (const m of mists) m.m.color.copy(m.base).lerp(wC, 0.25);   // the mist catches the room's colour (scaled as the mist is)
       for (let i = 0; i < SN; i++) { const sw = weatherOf(T, slabs[i].z, t); slabIM.setColorAt(i, _c.copy(slabs[i].slot ? C.teal : C.blue).lerp(slabs[i].slot ? C.ochre : C.pink, sw).lerp(WHITE, 0.45).multiplyScalar(0.8)); }
       slabIM.instanceColor.needsUpdate = true;
       waterU.uCrest.value.copy(C.teal).lerp(C.pink, smoothstep(7, 12, T)).multiplyScalar(0.9);
@@ -649,10 +651,10 @@ export default {
       pois: [
         { at: birdLook(), from: U(0), to: U(2.4), fade: 0.25, weight: 0.85 },                              // the swallow ahead
         { at: [DIP.x, 0, DIP.z - 0.4], from: U(2.6), to: U(4.6), fade: 0.3, weight: 0.7 },                // the rings of the drink
-        { at: sideLook, from: U(4.5), to: U(7.0), fade: 0.35, weight: 1 },                                 // a real turn out through the left mirror: the bird's copies side by side
+        { at: sideLook, from: U(4.7), to: U(6.4), fade: 0.35, weight: 0.85 },                                 // a real turn out through the left mirror: the bird's copies side by side
         { at: climbLook, from: U(7.3), to: U(11.4), fade: 0.25, weight: 1 },                               // the climb: the gaze tips up 22-40 deg, the ceiling copies stack as a column
-        { at: birdLook(), from: U(12.2), to: U(15.3), fade: 0.2, weight: 1 },                         // the perched bird
-        { at: birdLook(), from: U(15.2), to: U(19.4), fade: 0.15, weight: 0.85 },                         // it swoops past on the right
+        { at: birdLook(), from: U(12.2), to: U(14.9), fade: 0.2, weight: 1 },                         // the perched bird
+        { at: birdLook(), from: U(15.3), to: U(17.2), fade: 0.3, weight: 0.45 },                         // it swoops past on the right
       ],
       portal: { shape: 'circle', style: 'ring', radius: PR, color: '#f0b6c8', veil: '#f0b6c8', glow: 0.55, halo: false, revealDistance: 700 },
       post: { exposure: 1.35, bloom: { strength: 0.3, radius: 0.5, threshold: 0.95 }, grade: { saturation: 1.05, contrast: 1.05, tint: '#fbf7ff', shadowTint: '#06040f', vignette: 0.3, grain: 0, aberration: 0 } },
