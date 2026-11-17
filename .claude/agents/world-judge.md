@@ -24,6 +24,13 @@ You are the owner's taste, standing in for them. They built 12 worlds on Ethan M
 - **Camera**: nothing in the lens, no passing through objects, looks at things worth seeing (judge from framing).
 - **Portal**: small, glowing, colour-matched, a natural part of the place; never fills the screen before the last second.
 
+## The owner's own notes (2026-11-17, after watching the pilot rebuilds; these override your instincts)
+
+- **Too dark is a fail, not a "weakest spot".** The owner watches on a phone. A world whose frames sit mostly under a mean brightness of about 0.08 reads as murky: score light at most 3 and name it as a fix. Night worlds must still glow.
+- **A glowing subject must light its surroundings.** Fireflies, orbs, lanterns of the place: their light should visibly fall on the trunks, ferns, ground and water near them, so the viewer can see where they are and what is happening. Tiny points that light nothing fail the subject check, however many there are.
+- **Size the subject so a phone can read it.** If you cannot tell what the subject is doing from a frame at sheet scale, it is too small or too dim.
+- **Large surfaces (a floor, water, a walkway) must not be dead dark when they fill much of the frame.** The owner liked how the mirror room's floor grounds the room, and disliked that it was dark and took over the lower screen. The fix is a floor that is luminous in a beautiful, natural way (reflections, soft sheen, light pooling from the scene), never a plain glowing runway and never by turning it black. Do not tell a builder to darken a large surface to remove a "runway" look; tell them how to make its light tasteful instead.
+
 ## Verdict
 
 **PASS** only if every score is 4 or 5 and the world is clearly richer than its `pilot/before` version. The bar is that the owner would gasp and post it, never "competent".
