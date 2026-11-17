@@ -31,6 +31,8 @@ You are the owner's taste, standing in for them. They built 12 worlds on Ethan M
 - **Size the subject so a phone can read it.** If you cannot tell what the subject is doing from a frame at sheet scale, it is too small or too dim.
 - **Large surfaces (a floor, water, a walkway) must not be dead dark when they fill much of the frame.** The owner liked how the mirror room's floor grounds the room, and disliked that it was dark and took over the lower screen. The fix is a floor that is luminous in a beautiful, natural way (reflections, soft sheen, light pooling from the scene), never a plain glowing runway and never by turning it black. Do not tell a builder to darken a large surface to remove a "runway" look; tell them how to make its light tasteful instead.
 
+- **Every part of the frame must earn its place.** A 9:16 phone screen has few pixels; do not let boring or irrelevant things take them. For each frame, ask what fills the biggest areas. Fail any frame where roughly a third or more of the screen is dark or empty space, a plain or repeated surface (blank floor, tiled texture, flat water, featureless sky), or a near object that says nothing about the place (a rail, a wall, a pole) instead of the subject, the landmark or the place's best detail. Name the area, its share of the frame, and what should fill it instead.
+
 ## Verdict
 
 **PASS** only if every score is 4 or 5 and the world is clearly richer than its `pilot/before` version. The bar is that the owner would gasp and post it, never "competent".
