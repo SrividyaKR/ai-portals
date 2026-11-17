@@ -652,9 +652,9 @@ export default {
       pois: [
         { at: (() => { const p = along(34, -20); return [p[0], -1, p[1]]; })(), from: 0, to: uOf(2.6), fade: 0.3, weight: 0.85, steady: true },   // out and down over the creek and the valley of sparks
         { at: [CHIM[0], chimY + 1.6, CHIM[1]], from: uOf(3.3), to: uOf(7.3), fade: 0.25, weight: 0.85, steady: true },                                  // the lone chimney, fireflies in its hearth                                  // the lone chimney, fireflies in its hearth
-        { at: (tm, uu) => { const s2 = uu * PL + 26, p = along(s2, 36); return [p[0], 1.5, p[1]]; }, from: uOf(7.1), to: uOf(11.1), fade: 0.3, weight: 0.82 },   // the wave arriving from the ridge
+        { at: (tm, uu) => { const s2 = uu * PL + 26, p = along(s2, 36); return [p[0], 1.5, p[1]]; }, from: 0.19, to: uOf(11.1), fade: 0.3, weight: 0.82 },   // the wave arriving from the ridge
         { at: (tm, uu) => { const k = ss(0.40, 0.43, uu), o = owl.g.visible ? owl.g.position : OW2; return [lerp(femSpot.x, o.x, k), lerp(femSpot.y - 1.2, o.y - 0.3, k), lerp(femSpot.z, o.z, k)]; }, from: 0.355, to: 0.5, fade: 0.25, weight: 0.85 },   // the answer in the ferns, then the owl landing
-        { at: (tm, uu) => { const c = camAtU(uu), hd = Math.hypot(COL.x - c.x, COL.z - c.z); return [COL.x, c.y + hd * Math.tan(lerp(20, 46, ss(0.58, 0.88, uu)) * PI / 180), COL.z]; }, from: 0.5, to: 0.78, fade: 0.3, weight: 0.9, steady: true },                                               // up the column
+        { at: (tm, uu) => { const c = camAtU(uu), hd = Math.hypot(COL.x - c.x, COL.z - c.z); return [COL.x, c.y + hd * Math.tan(lerp(8, 40, ss(0.62, 0.92, uu)) * PI / 180), COL.z]; }, from: 0.5, to: 0.78, fade: 0.3, weight: 0.9, steady: true },                                               // up the column
       ],
       portal: { shape: 'circle', style: 'ring', radius: 3, color: '#b8e890', veil: '#3a6a48', glow: 0.3, halo: true, revealDistance: 700, drawWithin: 140, drawIn: 14 },
       post: { exposure: 1.0, bloom: { strength: 0.3, radius: 0.5, threshold: 0.95 }, grade: { saturation: 1.08, contrast: 1.06, tint: '#f2fff4', shadowTint: '#020a14', vignette: 0.3, grain: 0, aberration: 0 } },
