@@ -41,7 +41,7 @@ const Z_NEAR = 66, Z_FAR = -205;      // the hall's orbs run from behind the sta
 const TAU = Math.PI * 2;
 
 // The palette (sRGB hex; THREE.Color makes them linear)
-const PAL = { blue: '#4a7cff', teal: '#3fcf9a', ochre: '#d9a441', pink: '#f08aa8', bg: '#04030a' };
+const PAL = { blue: '#4a7cff', teal: '#3fcf9a', ochre: '#d9a441', pink: '#f08aa8', bg: '#120a26' };
 
 // camera: an S-curve on the walkway; low to 6.5 s, up to 2.6 by 11 s, then up to the ring's centre for the last stretch
 const camX = (T) => (1.0 * Math.sin(0.42 * T) + 0.35 * Math.sin(1.1 * T)) * (1 - smoothstep(15.4, 17.1, T));
@@ -53,7 +53,7 @@ const camAt = (T) => [camX(T), camY(T), Z0 - V * T];
 // is the neighbours' difference unless given; the perch keys have zero velocity, so the bird slows to land and the two
 // perch keys hold it still between them.
 // ---------------------------------------------------------------------------------------------------------------------
-const PERCH = { x: 3.65, z: -58, r: 0.3, y0: 3.3, T0: 12.5, T1: 15.3 };   // the orb it lands on (y0: the orb's centre)
+const PERCH = { x: 3.0, z: -66, r: 0.3, y0: 3.0, T0: 12.5, T1: 15.3 };   // nearer the path (3.3 m), still outside the 2.6 m tube   // the orb it lands on (y0: the orb's centre)
 const PERCH_Y = PERCH.y0 + PERCH.r + 0.012;
 const BK = [
   [0.0, 1.6, 0.9, 25.8],                         // the hook: 4.5 m ahead, crossing right to left over its reflection
@@ -127,7 +127,7 @@ export default {
     const orbMC = matcap((g) => { radial(g, [[0, '#d8d8d8'], [0.5, '#b4b4b4'], [0.78, '#7a7a7a'], [0.92, '#4c4c4c'], [0.97, '#6e6e6e'], [1, '#3a3a3a']]); radial(g, [[0, 'rgba(255,255,255,1)'], [0.35, 'rgba(255,255,255,0.55)'], [1, 'rgba(255,255,255,0)']], 48, 42, 30); });   // a glass sphere: a highlight up and left, the edge falling dark
     // the swallow: a mid body tone with a cool rim, so the dark back still outlines itself against the orbs
     const birdMC = matcap((g) => {
-      radial(g, [[0, '#8a8a96'], [0.55, '#7a7a88'], [0.8, '#8e8ea2'], [0.93, '#b0b0c4'], [1, '#8a8aa0']]);
+      radial(g, [[0, '#9a9aa8'], [0.55, '#8c8c9c'], [0.8, '#aeb0c4'], [0.93, '#e4e4f4'], [1, '#b8b8d0']]);   // a bright rim: the bird outlines itself
       // the rim takes the room's colours: teal from one side, dusk pink from the other, ochre from above
       for (const [cx, cy, col] of [[4, 70, '63,207,154'], [124, 66, '240,138,168'], [64, 2, '217,164,65'], [64, 126, '74,124,255']]) { const rg = g.createRadialGradient(cx, cy, 0, cx, cy, 46); rg.addColorStop(0, `rgba(${col},0.8)`); rg.addColorStop(1, `rgba(${col},0)`); g.fillStyle = rg; g.fillRect(0, 0, 128, 128); }
       const hl = g.createRadialGradient(46, 38, 0, 46, 38, 22); hl.addColorStop(0, 'rgba(255,255,255,0.45)'); hl.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = hl; g.fillRect(0, 0, 128, 128);
@@ -184,7 +184,7 @@ export default {
     const handG = own(shapeGeo([[0, 0.028], [0.08, 0.02], [0.17, -0.055], [0.238, -0.15], [0.15, -0.088], [0.06, -0.062], [0, -0.046]], (x) => (x > 0.15 ? [0.025, 0.035, 0.14] : [0.04, 0.07, 0.26])));
     const armGL = own(armG.clone().scale(-1, 1, 1)), handGL = own(handG.clone().scale(-1, 1, 1));
     const birdMat = own(new THREE.MeshMatcapMaterial({ matcap: birdMC, vertexColors: true, side: THREE.DoubleSide }));
-    const BIRD_S = 1.6;   // about 1.8 m across the wings: a swallow made readable at 9:16 among the orbs
+    const BIRD_S = 2.4;   // about 1.8 m across the wings: a swallow made readable at 9:16 among the orbs
     const bird = new THREE.Group(); bird.name = 'swallow';
     const body = new THREE.Mesh(bodyG, birdMat), beak = new THREE.Mesh(beakG, birdMat), tail = new THREE.Mesh(tailG, birdMat);
     body.position.set(0, 0, 0); tail.position.set(0, 0.004, 0);
@@ -227,6 +227,12 @@ export default {
       }
       // the perch orb's own room (it swings)
       if (Math.hypot(x - PERCH.x, z - PERCH.z) < 1.6 + r) return false;
+      // a clear sight line from the camera to the perch for T 12-15.3, so no orb hides the landing
+      for (let Tq = 12; Tq <= 15.3; Tq += 0.25) {
+        const ax = camX(Tq), ay = camY(Tq), az = Z0 - V * Tq, bx = PERCH.x - ax, by = PERCH.y0 + 0.4 - ay, bz = PERCH.z - az, L2 = bx * bx + by * by + bz * bz;
+        const f = clamp(((x - ax) * bx + (y - ay) * by + (z - az) * bz) / L2, 0, 1), ex = ax + bx * f - x, ey = ay + by * f - y, ez = az + bz * f - z;
+        if (Math.sqrt(ex * ex + ey * ey + ez * ez) < 0.8 + r) return false;
+      }
       for (const o of od) { const dx = o.x - x, dy = o.y - y, dz = o.z - z; if (dx * dx + dy * dy + dz * dz < (o.r + r + 0.14) ** 2) return false; }
       return true;
     };
@@ -309,7 +315,29 @@ export default {
     // =================================================================================================================
     const SLAB_L = 1.6, SLAB_GAP = 0.04, SLAB_W = 0.9, SLAB_T = 0.05;
     const slabG = own(new THREE.BoxGeometry(SLAB_W, SLAB_T, SLAB_L));
-    const slabMat = own(new THREE.MeshMatcapMaterial({ matcap: lacquerMC, color: '#ffffff', transparent: true, opacity: 0.6 }));   // glossy lacquer: the water's reflection shows through, tinted by the orbs near it
+    const POOLS = 24, poolP = [], poolC = []; for (let i = 0; i < POOLS; i++) { poolP.push(new THREE.Vector4(0, -999, 5, 0)); poolC.push(new THREE.Color(0, 0, 0)); }
+    const SLAB_VERT = /* glsl */`varying vec3 vL, vW, vN, vTint;
+      void main(){ vec4 l = instanceMatrix * vec4(position, 1.0); vL = l.xyz; vec4 w = modelMatrix * l; vW = w.xyz;
+        vN = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);
+        #ifdef USE_INSTANCING_COLOR
+          vTint = instanceColor;
+        #else
+          vTint = vec3(1.0);
+        #endif
+        gl_Position = projectionMatrix * viewMatrix * w; }`;
+    const SLAB_FRAG = /* glsl */`uniform vec4 uPool[24]; uniform vec3 uPoolC[24]; uniform vec3 uDim; uniform float uTime; varying vec3 vL, vW, vN, vTint;
+      void main(){
+        vec3 V = normalize(cameraPosition - vW); float fr = pow(1.0 - abs(dot(normalize(vN), V)), 2.0);
+        vec3 pool = vec3(0.0);
+        for (int i = 0; i < 24; i++) { vec4 q = uPool[i]; vec2 dd = vL.xz - q.xy; float R = 0.45 + 0.2 * q.z; pool += uPoolC[i] * q.w * exp(-dot(dd, dd) / (R * R)); }
+        // a slow uneven sheen across each slab, so no two read alike
+        float sh = 0.5 + 0.5 * sin(vL.z * 1.3 + vL.x * 2.7 + uTime * 0.2);
+        vec3 col = vTint * (0.02 + 0.035 * fr + 0.03 * sh) + pool * 3.0;   // the light is the orbs' pooled light, not a glowing strip
+        gl_FragColor = vec4(col * uDim, 0.58);
+      }`;
+    const slabU = { uPool: { value: poolP }, uPoolC: { value: poolC }, uTime: { value: 0 } };
+    const makeSlabMat = (n) => new THREE.ShaderMaterial({ uniforms: { ...slabU, uDim: { value: levelTint(n) } }, vertexShader: SLAB_VERT, fragmentShader: SLAB_FRAG, transparent: true, depthWrite: true });
+    const slabMat = own(makeSlabMat(0));   // glossy lacquer: the water's reflection shows through, with the light of the orbs pooled on it   // glossy lacquer: the water's reflection shows through, tinted by the orbs near it
     const rimG = own(new THREE.BoxGeometry(0.014, 0.014, SLAB_L - 0.06));
     const rimMat = own(new THREE.MeshBasicMaterial({ color: '#ffffff' }));
     const slabs = [];
@@ -320,7 +348,7 @@ export default {
     }
     const SN = slabs.length;
     const slabIM = new THREE.InstancedMesh(slabG, slabMat, SN); slabIM.renderOrder = 3; for (let i = 0; i < SN; i++) slabIM.setColorAt(i, _c.setRGB(1, 1, 1));
-    const rimIM = new THREE.InstancedMesh(rimG, rimMat, SN * 2);
+    const rimIM = new THREE.InstancedMesh(rimG, rimMat, SN * 2); rimIM.visible = false;   // off: the slabs carry the colour
     {
       const e = new THREE.Euler(), off = new THREE.Vector3();
       slabs.forEach((s, i) => {
@@ -383,13 +411,13 @@ export default {
         g.matrix.premultiply(jit);
       }
       const ro = orderOf(j);
-      const nl = j === -1 ? Math.abs(k) + 0.25 : n;   // the water is a near-perfect mirror: its row of copies is barely dimmed
+      const nl = j === -1 ? Math.abs(k) + 0.25 : j === 1 ? Math.abs(k) + 0.5 : n;   // the ceiling mirror nearly as bright: it shows the lit floor overhead   // the water is a near-perfect mirror: its row of copies is barely dimmed
       const water = k === 0 && j === -1, cn = water ? ON : NT;   // the hoop is not copied by the mirrors (only its reflection in the water)
       const cOrbs = new THREE.InstancedMesh(geoFor(n), atLevel('orb', orbMat, nl), ON); cOrbs.instanceMatrix = orbs.instanceMatrix; cOrbs.instanceColor = orbs.instanceColor; cOrbs.count = cn;
       const cHalo = new THREE.InstancedMesh(haloGeo, atLevel('halo', haloMat, nl, makeHaloMat), ON); cHalo.instanceMatrix = orbs.instanceMatrix; cHalo.instanceColor = orbs.instanceColor; cHalo.count = cn; cHalo.renderOrder = ro;
       const cThr = new THREE.LineSegments(thrG, atLevel('thr', thrMat, nl)); cThr.renderOrder = ro;
-      const cSlab = new THREE.InstancedMesh(slabG, atLevel('slab', slabMat, n), SN); cSlab.instanceMatrix = slabIM.instanceMatrix; cSlab.instanceColor = slabIM.instanceColor; cSlab.renderOrder = ro;
-      const cRim = new THREE.InstancedMesh(rimG, atLevel('rim', rimMat, nl), SN * 2); cRim.instanceMatrix = rimIM.instanceMatrix; cRim.instanceColor = rimIM.instanceColor;
+      const cSlab = new THREE.InstancedMesh(slabG, atLevel('slab', slabMat, n, makeSlabMat), SN); cSlab.instanceMatrix = slabIM.instanceMatrix; cSlab.instanceColor = slabIM.instanceColor; cSlab.renderOrder = ro;
+      const cRim = new THREE.InstancedMesh(rimG, atLevel('rim', rimMat, nl), SN * 2); cRim.instanceMatrix = rimIM.instanceMatrix; cRim.instanceColor = rimIM.instanceColor; cRim.visible = false;
       const cSeam = new THREE.InstancedMesh(seamG, atLevel('seam', seamMat, n), SEAMS); cSeam.instanceMatrix = seams.instanceMatrix; cSeam.count = seams.count;
       const cHoop = new THREE.Mesh(hoopG, atLevel('hoop', hoopMat, n)); cHoop.position.copy(hoop.position);
       const cBird = bird.clone(true); const bm = atLevel('bird', birdMat, n, (m) => { const c = birdMat.clone(); c.color.setScalar(Math.pow(0.8, m)); return c; });   // the bird's copies fade slowly: the flock cBird.traverse((o) => { if (o.isMesh) o.material = bm; });
@@ -411,8 +439,7 @@ export default {
     // (the floor seen in the ceiling) and y = -2H.
     // =================================================================================================================
     const ringU = []; for (let i = 0; i < 6; i++) ringU.push(new THREE.Vector4(0, 0, -99, 0));
-    const POOLS = 24, poolP = [], poolC = []; for (let i = 0; i < POOLS; i++) { poolP.push(new THREE.Vector4(0, -999, 5, 0)); poolC.push(new THREE.Color(0, 0, 0)); }
-    const waterU = { uPool: { value: poolP }, uPoolC: { value: poolC }, uT: { value: 0 }, uTime: { value: 0 }, uRings: { value: ringU }, uCrest: { value: new THREE.Color() }, uBase: { value: new THREE.Color('#05040c') } };
+        const waterU = { uPool: { value: poolP }, uPoolC: { value: poolC }, uT: { value: 0 }, uTime: { value: 0 }, uRings: { value: ringU }, uCrest: { value: new THREE.Color() }, uBase: { value: new THREE.Color('#05040c') } };
     const WATER_VERT = /* glsl */`varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
     const WATER_FRAG = /* glsl */`
       uniform float uT, uTime, uJ, uY; uniform vec4 uRings[6]; uniform vec4 uPool[${24}]; uniform vec3 uPoolC[${24}]; uniform vec3 uCrest, uBase; varying vec3 vW;
@@ -429,14 +456,14 @@ export default {
         for (int i = 0; i < 6; i++) {
           vec4 r = uRings[i]; float age = uT - r.z; if (age <= 0.0 || r.w <= 0.0) continue;
           float d = length(p - r.xy), s = d - 1.6 * age;
-          float env = exp(-s * s * 1.6) * r.w * exp(-age * 0.32) * smoothstep(0.0, 0.25, age) * smoothstep(-0.2, 0.6, d);
-          float ph = s * 13.0; h += env * sin(ph); sl += env * abs(cos(ph));
+          float env = exp(-s * s * 0.9) * r.w * exp(-age * 0.32) * smoothstep(0.0, 0.25, age) * smoothstep(-0.2, 0.6, d);
+          float ph = s * 20.0; h += env * sin(ph); sl += env * pow(max(sin(ph), 0.0), 8.0);   // two or three thin crests
         }
         // a slow breath over the whole surface, so the reflection never sits dead still
         float amb = 0.5 + 0.5 * sin(vW.x * 2.1 + uTime * 0.55) * sin(vW.z * 1.7 - uTime * 0.4);
         float a = mix(0.1, 0.35, pow(cosT, 0.7));       // looking down: dark water; at a grazing look: the reflection
-        a = clamp(a - 0.12 * amb * (1.0 - cosT) + 0.35 * sl, 0.0, 0.92);
-        vec3 col = uBase + uCrest * max(h, 0.0) * 0.55 + uCrest * 0.025 * amb;
+        a = clamp(a - 0.12 * amb * (1.0 - cosT) + 0.22 * h, 0.0, 0.92);   // the reflection shivers in rings: the sheet thickens and thins with the ripple
+        vec3 col = uBase + uCrest * sl * 0.15 / max(a, 0.1) + uCrest * 0.025 * amb;
         // light pooling on the water under the nearest orbs (x folded, so every mirrored floor has its pools too)
         vec3 pool = vec3(0.0);
         for (int i = 0; i < ${24}; i++) { vec4 q = uPool[i]; vec2 dd = p - q.xy; float R = 0.3 + 0.14 * q.z; pool += uPoolC[i] * q.w * exp(-dot(dd, dd) / (R * R)) * (0.8 + 0.4 * amb); }
@@ -450,7 +477,7 @@ export default {
       mesh.position.set(0, y, (Z_NEAR + Z_FAR) / 2); mesh.renderOrder = 2; mesh.frustumCulled = false; if (flip) mesh.scale.y = -1;
       scene.add(mesh); return mesh;
     };
-    waterPlane(0, 0); waterPlane(2 * H, 1); waterPlane(-2 * H, 2);
+    waterPlane(0, 0); waterPlane(2 * H, 0.5); waterPlane(-2 * H, 2);
     // the dip's rings (x, z, start T, strength); one faint old ring is already spreading when we arrive
     const DIP = new THREE.Vector3(); birdAt(2.8, DIP);
     const RINGS = [[-1.6, 19.5, -1.2, 0.45], [DIP.x, DIP.z, 2.8, 1.0], [DIP.x + 0.05, DIP.z - 0.12, 3.02, 0.6], [DIP.x + 0.1, DIP.z - 0.3, 3.3, 0.35], [DIP.x + 0.35, DIP.z - 2.2, 3.12, 0.4], [DIP.x - 0.2, DIP.z + 1.1, 2.62, 0.22]];
@@ -471,6 +498,15 @@ export default {
     }
     const mistT = own(new THREE.CanvasTexture(mistC)); mistT.wrapS = mistT.wrapT = THREE.RepeatWrapping;
     const mists = [];
+    // a faint coloured haze high under the ceiling (about 4%), so the top of the frame is never dead black
+    for (const [y, op] of [[H - 0.6, 0.05], [H - 2.2, 0.035]]) {
+      const t = own(mistT.clone()); t.needsUpdate = true; t.repeat.set(1.2, 10); t.offset.set(R(), R());
+      const m = own(new THREE.MeshBasicMaterial({ color: '#8070c0', alphaMap: t, transparent: true, opacity: op * 8, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+      m.color.multiplyScalar(0.25);
+      const mesh = new THREE.Mesh(own(new THREE.PlaneGeometry(2 * W, Z_NEAR - Z_FAR).rotateX(-Math.PI / 2)), m);
+      mesh.position.set(0, y, (Z_NEAR + Z_FAR) / 2); mesh.renderOrder = 4; mesh.frustumCulled = false; scene.add(mesh);
+      mists.push({ m, base: m.color.clone(), t, vx: R.range(-0.003, 0.003), vz: -0.003 });
+    }
     [[0.32, '#8a86c0', 0.06], [0.52, '#7a90b8', 0.05], [0.78, '#a088b0', 0.04]].forEach(([y, col, op], i) => {
       const t = own(mistT.clone()); t.needsUpdate = true; t.repeat.set(1.5, 14); t.offset.set(R(), R());
       const m = own(new THREE.MeshBasicMaterial({ color: col, alphaMap: t, transparent: true, opacity: op * 8, depthWrite: false, blending: THREE.AdditiveBlending }));
@@ -497,8 +533,8 @@ export default {
     const PEND_L = H - PERCH.y0;
     const perchSwing = (T) => {
       let th = 0;
-      if (T > PERCH.T0) { const s = T - PERCH.T0; th += 0.05 * Math.exp(-s / 2.6) * Math.sin(TAU * 0.3 * s); }
-      if (T > PERCH.T1) { const s = T - PERCH.T1; th -= 0.035 * Math.exp(-s / 2.6) * Math.sin(TAU * 0.3 * s); }
+      if (T > PERCH.T0) { const s = T - PERCH.T0; th += 0.12 * Math.exp(-s / 2.6) * Math.sin(TAU * 0.3 * s); }
+      if (T > PERCH.T1) { const s = T - PERCH.T1; th -= 0.08 * Math.exp(-s / 2.6) * Math.sin(TAU * 0.3 * s); }
       return th;
     };
     const perchPos = (T, out) => { const th = perchSwing(T); return out.set(PERCH.x + swingDir.x * PEND_L * Math.sin(th), H - PEND_L * Math.cos(th), PERCH.z + swingDir.z * PEND_L * Math.sin(th)); };
@@ -567,9 +603,9 @@ export default {
         if (wave > -100) { const s = (Z0 - z) - wave; k *= 1 + 0.75 * Math.exp(-(s * s) / (2 * WAVE_W * WAVE_W)) * (1 - smoothstep(4, 8, T)); }
         if (d.hoop) k *= 0.9 + 0.25 * Math.sin(d.a * 3 - t * 0.6);
         // the landing: a sphere of light spreads out from the perch orb through the room (and every copy) at 9 m/s
-        if (T > PERCH.T0 && T < 16.5) { const dd = Math.hypot(x - PERCH.x, y - PERCH.y0, z - PERCH.z), s = dd - 9 * (T - PERCH.T0); k *= 1 + 0.7 * Math.exp(-(s * s) / 8) * (1 - smoothstep(14.8, 16.5, T)); }
+        if (T > PERCH.T0 && T < 16.5) { const dd = Math.hypot(x - PERCH.x, y - PERCH.y0, z - PERCH.z), s = dd - 9 * (T - PERCH.T0); k *= 1 + 1.5 * Math.exp(-(s * s) / 3) * (1 - smoothstep(14.8, 16.5, T)); }
         // as the swallow nears the ring, a warm wave comes back up the hall from it, toward us, at 22 m/s
-        if (T > 16.4) { const s = (z - PZ) - 22 * (T - 16.4); const e = Math.exp(-(s * s) / 18); k *= 1 + 0.8 * e; _c.lerp(C.ochre, 0.35 * e); }
+        if (T > 16.4) { const s = (z - PZ) - 22 * (T - 16.4); const e = Math.exp(-(s * s) / 18); k *= 1 + 0.8 * e; _c.lerp(C.ochre, 0.6 * e); }
         if (d.perch && T > PERCH.T0) k *= 1 + 0.6 * Math.exp(-(T - PERCH.T0) * 1.2);
         orbs.setColorAt(i, _c.multiplyScalar(k));
       }
@@ -589,6 +625,7 @@ export default {
         }
       }
       const wC = _c.copy(C.teal).lerp(C.pink, smoothstep(7, 12, T));
+      birdMat.color.setRGB(1, 1, 1).lerp(wC, 0.35).multiplyScalar(1.15); slabU.uTime.value = t;
       wC.multiplyScalar(0.2); for (const m of mists) m.m.color.copy(m.base).lerp(wC, 0.5);   // the mist catches the room's colour (scaled as the mist is)
       for (let i = 0; i < SN; i++) { const sw = weatherOf(T, slabs[i].z, t); slabIM.setColorAt(i, _c.copy(slabs[i].slot ? C.teal : C.blue).lerp(slabs[i].slot ? C.ochre : C.pink, sw).lerp(WHITE, 0.45).multiplyScalar(0.8)); }
       slabIM.instanceColor.needsUpdate = true;
@@ -605,7 +642,7 @@ export default {
     // its copies across the left mirrors (x -7.6, -22, -28, -42) stand side by side, each a reflection smaller and dimmer
     const sideLook = (tm, uu) => { const T = clamp(uu, 0, 1) * DUR, c = camAt(T), v = birdAt(T, new THREE.Vector3()); return [c[0] - 16, v.y + 0.3, Math.min(v.z, c[2] - 3)]; };
     // the climb: toward the bird's bearing, pitched 22 deg up at first and 40 deg by T 9.2
-    const climbLook = (tm, uu) => { const T = clamp(uu, 0, 1) * DUR, c = camAt(T), v = birdAt(T, new THREE.Vector3()); const dx = v.x - c[0], dz = v.z - c[2], dh = Math.max(4, Math.hypot(dx, dz)); const pitch = (22 + 18 * smoothstep(7.3, 9.2, T)) * Math.PI / 180; return [c[0] + dx, c[1] + dh * Math.tan(pitch), c[2] + dz]; };
+    const climbLook = (tm, uu) => { const T = clamp(uu, 0, 1) * DUR, c = camAt(T), v = birdAt(T, new THREE.Vector3()); const dx = v.x - c[0], dz = v.z - c[2], dh = Math.max(4, Math.hypot(dx, dz)); const pitch = (12 + 10 * smoothstep(7.3, 9.2, T)) * Math.PI / 180; return [c[0] + dx, c[1] + dh * Math.tan(pitch), c[2] + dz]; };
     return {
       scene, path, duration: DUR, title: 'The Infinity Room', ride: 'none', style: 'none', companion: 'none',
       camera: { fov: 70, near: 0.15, nearThrough: 0.4, far: 700, lookAhead: 8, sway: 0.4, bank: 0.05 },
@@ -614,11 +651,11 @@ export default {
         { at: [DIP.x, 0, DIP.z - 0.4], from: U(2.6), to: U(4.6), fade: 0.3, weight: 0.7 },                // the rings of the drink
         { at: sideLook, from: U(4.5), to: U(7.0), fade: 0.35, weight: 1 },                                 // a real turn out through the left mirror: the bird's copies side by side
         { at: climbLook, from: U(7.3), to: U(11.4), fade: 0.25, weight: 1 },                               // the climb: the gaze tips up 22-40 deg, the ceiling copies stack as a column
-        { at: birdLook(), from: U(12.2), to: U(14.4), fade: 0.25, weight: 0.95 },                         // the perched bird
-        { at: birdLook(), from: U(16.6), to: U(19.4), fade: 0.3, weight: 0.6 },                         // it swoops past on the right
+        { at: birdLook(), from: U(12.2), to: U(15.3), fade: 0.2, weight: 1 },                         // the perched bird
+        { at: birdLook(), from: U(15.2), to: U(19.4), fade: 0.15, weight: 0.85 },                         // it swoops past on the right
       ],
       portal: { shape: 'circle', style: 'ring', radius: PR, color: '#f0b6c8', veil: '#f0b6c8', glow: 0.55, halo: false, revealDistance: 700 },
-      post: { exposure: 1.2, bloom: { strength: 0.3, radius: 0.5, threshold: 0.95 }, grade: { saturation: 1.05, contrast: 1.05, tint: '#fbf7ff', shadowTint: '#06040f', vignette: 0.3, grain: 0, aberration: 0 } },
+      post: { exposure: 1.35, bloom: { strength: 0.3, radius: 0.5, threshold: 0.95 }, grade: { saturation: 1.05, contrast: 1.05, tint: '#fbf7ff', shadowTint: '#06040f', vignette: 0.3, grain: 0, aberration: 0 } },
       update(dt, t, camera, u) {
         const T = clamp(u ?? 0, 0, 1) * DUR;
         pose(T, t);

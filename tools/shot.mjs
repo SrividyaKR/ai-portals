@@ -38,15 +38,17 @@ const files = [];
 for (const t of times.split(',').map(Number)) {
   const wait = t0 + t * 1000 - Date.now(); if (wait > 0) await sleep(wait);
   const shot = await send('Page.captureScreenshot', { format: 'png' }); const f = path.join(outDir, `${world}-${String(t).replace('.', '_').padStart(4, '0')}.png`);
-  fs.writeFileSync(f, Buffer.from(shot.result.data, 'base64')); files.push([t, f]);
+  // the flight's real progress at this frame: u = distance along the route / its length (what a look's from/to are in)
+  const u = await ev(`(() => { const c = window.__engine && window.__engine.cur; return c && c.path ? (c.dist / c.path.length) : null; })()`);
+  fs.writeFileSync(f, Buffer.from(shot.result.data, 'base64')); files.push([t, f, u]);
 }
 fs.writeFileSync(path.join(outDir, `${world}-console.txt`), logs.join('\n'));
 ws.close();
 // brightness: mean luminance (0-1) and share of pixels above 0.85, from a downscaled grey copy
-for (const [t, f] of files) {
+for (const [t, f, u] of files) {
   const r = spawnSync('ffmpeg', ['-v', 'error', '-i', f, '-vf', 'scale=270:480,format=gray', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 24 });
   const px = r.stdout; let sum = 0, hi = 0; for (const v of px) { sum += v; if (v > 217) hi++; }
-  console.log(`t=${t}s mean=${(sum / px.length / 255).toFixed(3)} above0.85=${(hi / px.length).toFixed(3)}`);
+  console.log(`t=${t}s u=${u == null ? '?' : u.toFixed(3)} mean=${(sum / px.length / 255).toFixed(3)} above0.85=${(hi / px.length).toFixed(3)}`);
 }
 // one sheet, all frames in a row at 270x480 each, left to right in the order of the times given (printed below)
 const inputs = files.flatMap(([, f]) => ['-i', f]);

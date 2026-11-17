@@ -24,7 +24,7 @@ const WL = -0.3;           // the creek's water line
 const DECK = 0.42;         // the boardwalk's deck height
 const BW0 = -12, BW1 = LH - 7; // the boardwalk runs from behind the start to the creek mouth
 // heading (radians, 0 = -z, positive turns right): left past the chimney, right over the creek, then down the creek line
-const HEAD = (s) => -0.3 * (1 - ss(0, 14, s)) - 0.34 * ss(12, 30, s) + 0.34 * ss(34, 50, s) + 0.5 * ss(52, 74, s) - 0.24 * ss(82, 102, s);
+const HEAD = (s) => -0.3 * (1 - ss(0, 14, s)) - 0.34 * ss(12, 30, s) + 0.34 * ss(34, 50, s) + 0.5 * ss(52, 74, s) - 0.24 * ss(82, 102, s) + 0.3 * ss(150, 205, s);
 // eye height: 9 m under the crowns, eased down to 1.7 m by 2.2 s, a faint step bob on the boards, then rising with the swarm to the ring's centre
 const EYE = (s) => 1.7 + 7.3 * (1 - ss(0, 15, s)) + 1.3 * ss(LH - 40, LH, s) + 0.035 * Math.sin(s * 1.55) * ss(14, 20, s) * (1 - ss(92, 100, s));
 // the creek's offset from the route (right positive): along the left bank, under the bridge at about 63 m, along the right, then under the route
@@ -41,20 +41,20 @@ float pulseN(float q, float n){ if (q < 0. || q > n) return 0.; float s = sin(3.
 float maleSync(vec3 p){
   float d = dot(p.xz - uWO, uWD);
   float b = pulseN((uT - 6.5 - d / 80.) / .68, 6.);
-  b = max(b, pulseN((uT - 14. - d / 160.) / .72, 7.));
+  b = max(b, pulseN((uT - 13.2 - d / 160.) / .72, 7.));
   float e = uT - 20.5 - d / 160.; if (e > 0.) b = max(b, pulseN(mod(e, 7.) / .72, 6.));
   return b;
 }
-uniform sampler2D uLM; uniform vec4 uLMB; uniform float uFieldLvl;
+uniform sampler2D uLM; uniform vec4 uLMB; uniform float uFieldLvl, uFemLvl;
 float burstEnv(vec3 p){
   float d = dot(p.xz - uWO, uWD), e = uT - 6.5 - d / 80.;
   float b = smoothstep(0., .5, e) * (1. - smoothstep(4.08, 4.7, e));
-  e = uT - 14. - d / 160.; b = max(b, smoothstep(0., .5, e) * (1. - smoothstep(5.04, 5.7, e)));
+  e = uT - 13.2 - d / 160.; b = max(b, smoothstep(0., .5, e) * (1. - smoothstep(5.04, 5.7, e)));
   e = uT - 20.5 - d / 160.; if (e > 0.) { float c = mod(e, 7.); b = max(b, smoothstep(0., .5, c) * (1. - smoothstep(4.32, 4.9, c))); }
   return b;
 }
 // the local light of the fireflies around p: their density (a blurred map of the field) times how much they are shining now
-float fieldGlow(vec3 p){ float dn = texture2D(uLM, clamp((p.xz - uLMB.xy) * uLMB.zw, 0., 1.)).r; return dn * (uFieldLvl + .9 * burstEnv(p) + .5 * maleSync(p)); }`;
+float fieldGlow(vec3 p){ vec2 m = texture2D(uLM, clamp((p.xz - uLMB.xy) * uLMB.zw, 0., 1.)).rg; return m.x * (uFieldLvl + .9 * burstEnv(p) + .5 * maleSync(p)) + 1.6 * m.y * uFemLvl; }`;
 
 const FLY_VERT = /* glsl */`
 attribute vec3 aP, aQ; attribute vec4 aR;
@@ -62,13 +62,14 @@ uniform float uTime, uPx, uFogK, uLock, uRand, uGap, uDim, uStreak, uSize;
 uniform vec3 uCol, uFly, uFem;
 varying vec2 vQ; varying vec3 vC;
 ${FLASH_GLSL}
-float femB(float k){ float l = uT - uGap - .45 - k * 1.4; return (l > 0. && l < .6) ? pow(sin(3.14159 * l / .6), 2.) : 0.; }
+float femB(float k){ float l = uT - uGap - .45 - k * 1.1; return (l > 0. && l < .9) ? pow(sin(3.14159 * l / .9), 2.) : 0.; }
 void main(){
   float kind = aR.w; vec3 p = aP;
   if (kind < .5 || kind > 3.5) p += vec3(sin(uTime * .43 + aR.x * 40.), .55 * sin(uTime * .61 + aR.z * 60.), cos(uTime * .37 + aR.x * 50.)) * (.25 + .8 * aR.z);
   // alone: each at its own moment, the phases drawn together (uLock) before the first shared dark
   float rnd = pow(max(sin(3.14159 * fract(uTime * .5 + mix(aR.x, aR.x * .15, uLock))), 0.), 6.);
   float m = mix(maleSync(aP), rnd, uRand), b = m, colA = 1.;
+  if (kind > .5 && kind < 1.5) b = max(b, .3);                     // resting on the rails and boards, still glowing softly
   if (kind > 1.5 && kind < 2.5) b = femB(aR.z);                      // a female in the ferns: one warm answer in each dark gap
   else if (kind > 2.5 && kind < 3.5) {                                // a male that spirals down and lands beside her
     float kL = smoothstep(0., 1., clamp((uT - 11.9 - aR.z * .6) / 1.8, 0., 1.)), r = (1. - kL) * 2.;
@@ -86,7 +87,7 @@ void main(){
   }
   b = max(b, .03);
   vec4 mv = modelViewMatrix * vec4(p, 1.);
-  float dist = length(mv.xyz), want = uSize * (.7 + .6 * aR.y) * (kind > 3.5 ? 1.25 : 1.), sz = max(want, dist * uPx * 1.6);   // never under ~3 pixels, never a big disc
+  float dist = length(mv.xyz), want = uSize * (.7 + .6 * aR.y) * (kind > 3.5 ? 1.25 : kind > 1.5 ? 1.7 : 1.), sz = max(want, dist * uPx * 1.6);   // never under ~3 pixels, never a big disc
   float nf = (kind < .5 || kind > 3.5) ? smoothstep(2., 6., dist) : kind < 1.5 ? smoothstep(1.2, 3.4, dist) : smoothstep(1.6, 4.2, dist);
   mv.xy += position.xy * sz * vec2(1., uStreak);
   vQ = position.xy;
@@ -194,10 +195,10 @@ export default {
 
     // ---------------- shared uniforms: the wave of light through the whole scene ----------------
     const s60 = at(60), WD = new THREE.Vector2(-Math.cos(s60.h), -Math.sin(s60.h)), WO = new THREE.Vector2(s60.x + Math.cos(s60.h) * 55, s60.z + Math.sin(s60.h) * 55);
-    const FU = { uT: { value: 0 }, uWO: { value: WO }, uWD: { value: WD }, uAmb: { value: 0.34 }, uWaveK: { value: 0.3 }, uWL: { value: WL }, uLM: { value: null }, uLMB: { value: new THREE.Vector4() }, uFieldLvl: { value: 0.45 }, uGlowK: { value: 0.8 } };
-    const maleSyncJS = (x, z, T) => { const d = (x - WO.x) * WD.x + (z - WO.y) * WD.y; let b = pulseN((T - 6.5 - d / 80) / 0.68, 6); b = Math.max(b, pulseN((T - 14 - d / 160) / 0.72, 7)); const e = T - 20.5 - d / 160; if (e > 0) b = Math.max(b, pulseN((e % 7) / 0.72, 6)); return b; };
+    const FU = { uT: { value: 0 }, uWO: { value: WO }, uWD: { value: WD }, uAmb: { value: 0.34 }, uWaveK: { value: 0.3 }, uWL: { value: WL }, uLM: { value: null }, uLMB: { value: new THREE.Vector4() }, uFieldLvl: { value: 0.45 }, uFemLvl: { value: 0 }, uGlowK: { value: 0.8 } };
+    const maleSyncJS = (x, z, T) => { const d = (x - WO.x) * WD.x + (z - WO.y) * WD.y; let b = pulseN((T - 6.5 - d / 80) / 0.68, 6); b = Math.max(b, pulseN((T - 13.2 - d / 160) / 0.72, 7)); const e = T - 20.5 - d / 160; if (e > 0) b = Math.max(b, pulseN((e % 7) / 0.72, 6)); return b; };
     // MeshBasicMaterial lit by the night (uAmb) and by the passing wave of flashes; optionally cut away under the water line
-    const litMat = (opts, lightK = 1, cut = false, atlas = false) => {
+    const litMat = (opts, lightK = 1, cut = false, atlas = false, deck = false) => {
       const m = new THREE.MeshBasicMaterial(opts);
       m.onBeforeCompile = (sh) => {
         Object.assign(sh.uniforms, FU); sh.uniforms.uLK = { value: lightK };
@@ -211,11 +212,12 @@ export default {
           wq = instanceMatrix * wq;
           #endif
           vWP = (modelMatrix * wq).xyz;`);
-        sh.fragmentShader = 'varying vec3 vWP; uniform float uLK, uAmb, uWaveK, uWL, uGlowK;\n' + FLASH_GLSL + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        sh.fragmentShader = 'varying vec3 vWP; uniform float uLK, uAmb, uWaveK, uWL, uGlowK;\nfloat dh21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }\nfloat dvn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(dh21(i), dh21(i + vec2(1, 0)), f.x), mix(dh21(i + vec2(0, 1)), dh21(i + vec2(1, 1)), f.x), f.y); }\n' + FLASH_GLSL + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
           ${cut ? 'if (vWP.y < uWL) discard;' : ''}
-          diffuseColor.rgb *= uLK * (uAmb + uWaveK * (.5 * burstEnv(vWP) + .5 * sqrt(maleSync(vWP))) * vec3(.86, 1., .58) + uGlowK * fieldGlow(vWP) * vec3(.78, 1., .42));`);
+          diffuseColor.rgb *= uLK * (uAmb + uWaveK * (.5 * burstEnv(vWP) + .5 * sqrt(maleSync(vWP))) * vec3(.86, 1., .58) + uGlowK * fieldGlow(vWP) * vec3(.78, 1., .42));
+          ${deck ? '{ float pn = dvn(vWP.xz * .45 + vec2(uT * .11, uT * .07)) * .65 + dvn(vWP.xz * 1.2 - uT * .05) * .35; diffuseColor.rgb *= .45 + 1.35 * smoothstep(.3, .85, pn); }' : ''}`);
       };
-      m.customProgramCacheKey = () => 'ffsync-lit' + (cut ? '-cut' : '') + (atlas ? '-atlas' : '');
+      m.customProgramCacheKey = () => 'ffsync-lit' + (cut ? '-cut' : '') + (atlas ? '-atlas' : '') + (deck ? '-deck' : '');
       return own(m);
     };
     const tex = (cv, rx = 1, ry = 1) => { const t = own(new THREE.CanvasTexture(cv)); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = 8; return t; };
@@ -298,7 +300,7 @@ export default {
 
     // ---------------- materials ----------------
     const groundMat = litMat({ map: groundT, vertexColors: true }, 1.9, true);
-    const plankMat = litMat({ map: plankT, color: '#ffffff' }, 0.72, false, true), postMat = litMat({ map: postT, color: '#ffffff' }, 1.2);
+    const plankMat = litMat({ map: plankT, color: '#ffffff' }, 0.8, false, true, true), postMat = litMat({ map: postT, color: '#ffffff' }, 1.2);
     const barkMat = litMat({ map: barkT, vertexColors: true }, 2.6), stoneMat = litMat({ map: stoneT, color: '#ffffff' }, 1.8);
     const fernMat = litMat({ vertexColors: true, side: THREE.DoubleSide }, 2.4), lumpMat = litMat({ vertexColors: true }, 2.0);
     const leafMat = litMat({ map: leafT, alphaTest: 0.5, side: THREE.DoubleSide }, 1.3), boughMat = litMat({ map: boughT, alphaTest: 0.35, side: THREE.DoubleSide, color: '#ffffff' }, 1.9);
@@ -420,7 +422,7 @@ export default {
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(CL, 3)); g.setIndex(I); g.computeVertexNormals(); return own(g);
     })();
     const NT = 700, trunks = inst(trunkGeo, barkMat, NT, true); let tn = 0; const hemlocks = [], blockers = [], tops = [];
-    const SNAG = along(126, -15.5), CHIM = along(46, -22), CHIM2 = along(14, -66), PORCH = along(72, 47);
+    const SNAG = along(134, -15.5), CHIM = along(46, -22), CHIM2 = along(14, -66), PORCH = along(72, 47);
     blockers.push([CHIM[0], CHIM[1], 5], [CHIM2[0], CHIM2[1], 5], [PORCH[0], PORCH[1], 7], [SNAG[0], SNAG[1], 3]);
     const freeOf = (x, z) => blockers.every(([bx, bz, r]) => Math.hypot(x - bx, z - bz) > r);
     const addTrunk = (x, z, far) => {
@@ -438,17 +440,17 @@ export default {
     // the canopy: many small irregular sprays on every near tree from 6 m up (hemlocks drooping in tiers, poplars higher and
     // flatter), so the crowns are broken lace against the sky and catch the fireflies' light; far trees keep small rough lumps
     { const g = own(new THREE.PlaneGeometry(1, 1, 6, 1)); g.translate(0.5, 0, 0); const P = g.attributes.position; for (let i = 0; i < P.count; i++) { const x = P.getX(i); P.setXYZ(i, x, -0.35 * x * x, P.getY(i) * (0.35 + 0.65 * x)); }
-      const NBo = 12000, boughs = inst(g, boughMat, NBo, true); let n = 0;
+      const NBo = 24000, boughs = inst(g, boughMat, NBo, true); let n = 0;
       for (const [x, y, z, Ht, hem, far, r] of tops) { if (far) continue; const q = gq(x, z), open = q.sP > 90 ? 1 - ss(20, 34 + 0.12 * (q.sP - 90), q.dC) : 0;   // the creek opening near the end stays open to the stars
-        if (hem) { for (let hh = 6 + R.range(0, 1.5); hh < 0.9 * Ht && n < NBo - 6; hh += R.range(1.8, 2.8)) { const f = (hh - 6) / (0.9 * Ht - 6); if (f > 0.5 && R() < open) continue;   // a dense drooping cone, tier by tier
-            const nt = R.int(3, 5), a0 = R.range(0, TAU); for (let j = 0; j < nt; j++) { const a = a0 + j * TAU / nt + R.range(-0.4, 0.4), L = R.range(3.4, 5.4) * (1.15 - 0.85 * f) * R.range(0.85, 1.1);
-              put(boughs, n++, x + Math.cos(a) * r * 0.7, y + hh + R.range(-0.3, 0.3), z - Math.sin(a) * r * 0.7, 0, a, R.range(-0.3, -0.05), L, L * 0.8, L * R.range(0.55, 0.85), _c.set('#a8c0a4').multiplyScalar(R.range(0.4, 0.7))); } } }
+        if (hem) { for (let hh = 6 + R.range(0, 1.5); hh < 0.9 * Ht && n < NBo - 9; hh += R.range(1.1, 1.7)) { const f = (hh - 6) / (0.9 * Ht - 6); if (f > 0.5 && R() < open) continue;   // a dense drooping cone, tier by tier
+            const nt = R.int(6, 9), a0 = R.range(0, TAU); for (let j = 0; j < nt; j++) { const a = a0 + j * TAU / nt + R.range(-0.3, 0.3), L = R.range(2.6, 4.4) * (1.2 - 0.9 * f) * R.range(0.85, 1.1);
+              put(boughs, n++, x + Math.cos(a) * r * 0.7, y + hh + R.range(-0.3, 0.3), z - Math.sin(a) * r * 0.7, 0, a, R.range(-0.3, -0.05), L, L * 0.8, L * R.range(0.55, 0.85), _c.set('#a8c0a4').multiplyScalar(R.range(0.28, 0.5))); } } }
         else for (let k = 0, m = R.int(10, 15); k < m && n < NBo; k++) { const f = R(), hh = lerp(0.6 * Ht, 0.95 * Ht, f); if (f > 0.4 && R() < open) continue;   // poplars: only the upper crown
           const a = R.range(0, TAU), L = R.range(2.2, 4) * R.range(0.8, 1.15); put(boughs, n++, x + Math.cos(a) * r * 0.6, y + hh, z - Math.sin(a) * r * 0.6, 0, a, R.range(-0.05, 0.3), L, L * 0.35, L * R.range(0.5, 0.85), _c.set('#f0ffe0').multiplyScalar(R.range(0.8, 1.2))); } }
       finish(boughs, n); }
     { const NCr = 1700, crowns = inst(lump(1, 0.45, '#0c1e14', '#2c5038'), lumpMat, NCr, true); let n = 0;
       for (const [x, y, z, Ht, hem, far] of tops) { const q = gq(x, z), open = !far && q.sP > 90 ? 1 - ss(20, 34 + 0.12 * (q.sP - 90), q.dC) : 0; if (R() < open) continue;
-        for (let j = 0, m = far ? 3 : hem ? 1 : 2; j < m && n < NCr; j++) { const hh = (far ? R.range(0.55, 0.95) : hem ? R.range(0.88, 0.97) : R.range(0.8, 0.97)) * Ht, sc = far ? R.range(2.2, 4.2) : hem ? R.range(1.4, 2.2) : R.range(2.6, 4.2);
+        for (let j = 0, m = far ? 3 : 0; j < m && n < NCr; j++) { const hh = (far ? R.range(0.55, 0.95) : hem ? R.range(0.88, 0.97) : R.range(0.8, 0.97)) * Ht, sc = far ? R.range(2.2, 4.2) : hem ? R.range(1.4, 2.2) : R.range(2.6, 4.2);
           put(crowns, n++, x + R.range(-3.5, 3.5), y + hh, z + R.range(-3.5, 3.5), R.range(-0.4, 0.4), R.range(0, TAU), R.range(-0.4, 0.4), sc, sc * R.range(0.5, 0.8), sc * R.range(0.7, 1.2), _c.set('#ffffff').multiplyScalar(R.range(0.55, 1.1))); } }
       finish(crowns, n); }
     // rhododendron thickets along the banks, all at least 15 m off the route
@@ -511,10 +513,10 @@ export default {
     await tick();
 
     // ---------------- 3b. Jakes Creek: rounded mossy boulders, the water with ripples and two riffles ----------------
-    { const N = 80, bo = inst(lump(2, 0.14, '#4a6a40', '#5a5a52'), lumpMat, N, true); let n = 0;
+    { const N = 80, bo = inst(lump(2, 0.26, '#2c4a26', '#34332c'), lumpMat, N, true); let n = 0;
       for (let tries = 0; n < N && tries < 3000; tries++) { const s = n % 2 ? R.range(LH - 100, LH + 70) : R.range(-40, LH + 200), cw = CW(s), lat = OFF(s) + R.range(-cw, cw) * 0.95, p = along(s, lat); const q = gq(p[0], p[1]); if (q.dP < 4.2) continue; const sc = R.range(0.35, q.dP < 8 ? 0.7 : 1.3); put(bo, n++, p[0], WL - sc * 0.35 + R.range(0, 0.15), p[1], R.range(-0.2, 0.2), R.range(0, TAU), R.range(-0.2, 0.2), sc * R.range(1, 1.5), sc * R.range(0.6, 0.85), sc * R.range(1, 1.4), _c.set('#ffffff').multiplyScalar(R.range(0.75, 1.1))); }
       finish(bo, n); }
-    const waterU = { uLM: FU.uLM, uLMB: FU.uLMB, uFieldLvl: FU.uFieldLvl, uGlowK: FU.uGlowK, uTime: { value: 0 }, uAmb: FU.uAmb, uWaveK: FU.uWaveK, uT: FU.uT, uWO: FU.uWO, uWD: FU.uWD, uFogK: { value: 0.0125 }, uR1: { value: LH - 45 }, uR2: { value: LH + 15 }, uWater: { value: C('#1c3450') }, uFoam: { value: C('#7a8c88') }, uFogCol: { value: FOGC }, uCam: { value: new THREE.Vector3() } };
+    const waterU = { uLM: FU.uLM, uLMB: FU.uLMB, uFieldLvl: FU.uFieldLvl, uFemLvl: FU.uFemLvl, uGlowK: FU.uGlowK, uTime: { value: 0 }, uAmb: FU.uAmb, uWaveK: FU.uWaveK, uT: FU.uT, uWO: FU.uWO, uWD: FU.uWD, uFogK: { value: 0.0125 }, uR1: { value: LH - 45 }, uR2: { value: LH + 15 }, uWater: { value: C('#1c3450') }, uFoam: { value: C('#7a8c88') }, uFogCol: { value: FOGC }, uCam: { value: new THREE.Vector3() } };
     {
       const Pp = [], UVs = [], I = []; let row = 0;
       for (let i = 0; i < CX.length; i++) {
@@ -565,7 +567,7 @@ export default {
     await tick();
 
     // ---------------- 7. fireflies ----------------
-    const FN = 13400, aP = new Float32Array(FN * 3), aQ = new Float32Array(FN * 3), aR = new Float32Array(FN * 4); let fn = 0;
+    const FN = 14400, aP = new Float32Array(FN * 3), aQ = new Float32Array(FN * 3), aR = new Float32Array(FN * 4); let fn = 0;
     const fly = (x, y, z, kind, qx = x, qy = y, qz = z) => { if (fn >= FN) return; aP.set([x, y, z], fn * 3); aQ.set([qx, qy, qz], fn * 3); aR.set([R(), R(), R(), kind], fn * 4); fn++; };
     const clearOfCam = (x, y, z, d) => { const q = gq(x, z); if (q.dP > d + 3) return true; const s = clamp(q.sP, 0, LH); return q.dP > d || Math.abs(y - EYE(s)) > d; };
     // (a) the valley field: understorey, trunk height, over the creek (doubled in it), deep valley layers, the far valley beyond the ring
@@ -584,9 +586,11 @@ export default {
     { const yaw = towardRoute(CHIM[0], CHIM[1], 40), cy = Math.cos(yaw), sy = Math.sin(yaw); for (let i = 0; i < 26; i++) { const lx = R.range(-0.4, 0.4), lz = R.range(0.1, 0.55); fly(CHIM[0] + cy * lx + sy * lz, chimY + R.range(0.15, 1.0), CHIM[1] - sy * lx + cy * lz, 0); } }   // in the cold hearth
     // (b) on the rails and post tops
     for (let i = 0; i < 150; i++) { const r = railTops[R.int(0, railTops.length - 1)], k = R(); fly(lerp(r[0], r[2], k), DECK + 0.9 + 0.035, lerp(r[1], r[3], k), 1); }
+    for (let i = 0; i < 260; i++) { const s = R.range(BW0 + 4, BW1), p = along(s, R.range(-0.85, 0.85)); fly(p[0], DECK + 0.04 + (R() < 0.6 ? 0 : R.range(0.1, 0.5)), p[1], 1); }   // settled on the boards and drifting just above them
+    for (let i = 0, tries = 0; i < 600 && tries < 6000; tries++) { const s = R.range(96, LH - 5), p = along(s, R.sign() * R.range(3, 10)), yy = Math.max(WL, H(p[0], p[1])) + R.range(1.5, 5); if (!clearOfCam(p[0], yy, p[1], 2.4)) continue; fly(p[0], yy, p[1], 0); i++; }   // the last burst close by on both sides
     // (d) the females in the ferns at the boardwalk edge, and the males that come down to them
-    const FEM = along(93, -6.5), femSpot = new THREE.Vector3(FEM[0], H(FEM[0], FEM[1]) + 0.35, FEM[1]); const fems = [];
-    for (let i = 0; i < 38; i++) { const s = R.range(87, 99), lat = -R.range(3.8, 10), p = along(s, lat); const y = Math.max(0, H(p[0], p[1])) + R.range(0.15, 0.6); fems.push([p[0], y, p[1]]); fly(p[0], y, p[1], 2); }
+    const FEM = along(104, -5.5), femSpot = new THREE.Vector3(FEM[0], H(FEM[0], FEM[1]) + 0.35, FEM[1]); const fems = [];
+    for (let i = 0; i < 46; i++) { const s = R.range(99, 110), lat = -R.range(3.2, 8.5), p = along(s, lat); const y = Math.max(0, H(p[0], p[1])) + R.range(0.15, 0.6); fems.push([p[0], y, p[1]]); fly(p[0], y, p[1], 2); }
     for (let i = 0; i < 40; i++) { const s = R.range(-5, LH - 10), lat = R.sign() * R.range(3, 12), p = along(s, lat); if (!okFloor(p[0], p[1], 3)) continue; fly(p[0], Math.max(0, H(p[0], p[1])) + R.range(0.15, 0.6), p[1], 2); }
     for (let i = 0; i < 9; i++) { const f = fems[i * 4 % fems.length]; fly(f[0] + R.range(-2.5, 2.5), f[1] + R.range(3, 5), f[2] + R.range(-2.5, 2.5), 3, f[0] + R.range(-0.25, 0.25), f[1] + 0.02, f[2] + R.range(-0.25, 0.25)); }
     // the swarm that will rise: low over the creek and the ferns ahead
@@ -594,14 +598,16 @@ export default {
     const flyGeo = own(new THREE.InstancedBufferGeometry()); flyGeo.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0], 3)); flyGeo.setIndex([0, 1, 2, 0, 2, 3]);
     flyGeo.setAttribute('aP', new THREE.InstancedBufferAttribute(aP, 3)); flyGeo.setAttribute('aQ', new THREE.InstancedBufferAttribute(aQ, 3)); flyGeo.setAttribute('aR', new THREE.InstancedBufferAttribute(aR, 4)); flyGeo.instanceCount = fn;
     // the light map: where the fireflies are, blurred over ~10 m, so their light pools on trunks, ferns, planks and water
-    { const W = 256, Dh = Math.max(64, Math.round(256 * (bz1 - bz0) / (bx1 - bx0))), A = new Float32Array(W * Dh), B = new Float32Array(W * Dh), sx = W / (bx1 - bx0), sz = Dh / (bz1 - bz0);
-      for (let i = 0; i < fn; i++) { const k = aR[i * 4 + 3]; if (k > 1.5 && k < 3.5) continue; const ix = Math.floor((aP[i * 3] - bx0) * sx), iz = Math.floor((aP[i * 3 + 2] - bz0) * sz); if (ix < 0 || iz < 0 || ix >= W || iz >= Dh) continue; A[iz * W + ix] += 1 / (1 + 0.04 * Math.max(0, aP[i * 3 + 1])); }
+    { const W = 256, Dh = Math.max(64, Math.round(256 * (bz1 - bz0) / (bx1 - bx0))), A = new Float32Array(W * Dh), B = new Float32Array(W * Dh), G = new Float32Array(W * Dh), sx = W / (bx1 - bx0), sz = Dh / (bz1 - bz0);
+      for (let i = 0; i < fn; i++) { const k = aR[i * 4 + 3], fem = k > 1.5 && k < 3.5, qi = fem && k > 2.5 ? aQ : aP; const ix = Math.floor((qi[i * 3] - bx0) * sx), iz = Math.floor((qi[i * 3 + 2] - bz0) * sz); if (ix < 0 || iz < 0 || ix >= W || iz >= Dh) continue; if (fem) G[iz * W + ix] += 1; else A[iz * W + ix] += 1 / (1 + 0.04 * Math.max(0, aP[i * 3 + 1])); }
+      for (let z = 0; z < Dh; z++) for (let x = 0; x < W; x++) { let t = 0; for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) t += G[clamp(z + dz, 0, Dh - 1) * W + clamp(x + dx, 0, W - 1)]; B[z * W + x] = t; } G.set(B);
+      { let gm = 0; for (let i = 0; i < W * Dh; i++) gm = Math.max(gm, G[i]); for (let i = 0; i < W * Dh; i++) G[i] = Math.min(1, G[i] / Math.max(1e-6, gm * 0.6)); }
       for (let pass = 0; pass < 3; pass++) { for (let z = 0; z < Dh; z++) for (let x = 0; x < W; x++) { let t = 0; for (let d = -2; d <= 2; d++) t += A[z * W + clamp(x + d, 0, W - 1)]; B[z * W + x] = t / 5; } for (let z = 0; z < Dh; z++) for (let x = 0; x < W; x++) { let t = 0; for (let d = -2; d <= 2; d++) t += B[clamp(z + d, 0, Dh - 1) * W + x]; A[z * W + x] = t / 5; } }
       const sorted = Array.from(A).filter((v) => v > 0).sort((a, b) => a - b), top = sorted.length ? sorted[Math.floor(sorted.length * 0.95)] : 1, px = new Uint8Array(W * Dh * 4);
-      for (let i = 0; i < W * Dh; i++) { const v = Math.min(1, Math.sqrt(A[i] / top)); px[i * 4] = px[i * 4 + 1] = px[i * 4 + 2] = Math.round(v * 255); px[i * 4 + 3] = 255; }
+      for (let i = 0; i < W * Dh; i++) { const v = Math.min(1, Math.sqrt(A[i] / top)); px[i * 4] = px[i * 4 + 2] = Math.round(v * 255); px[i * 4 + 1] = Math.round(G[i] * 255); px[i * 4 + 3] = 255; }
       const t = own(new THREE.DataTexture(px, W, Dh, THREE.RGBAFormat)); t.magFilter = t.minFilter = THREE.LinearFilter; t.needsUpdate = true;
       FU.uLM.value = t; FU.uLMB.value.set(bx0, bz0, 1 / (bx1 - bx0), 1 / (bz1 - bz0)); }
-    const FLYU = { uLM: FU.uLM, uLMB: FU.uLMB, uFieldLvl: FU.uFieldLvl, uTime: { value: 0 }, uPx: { value: 0.0007 }, uFogK: { value: 0.0072 }, uLock: { value: 0 }, uRand: { value: 1 }, uGap: { value: -10 }, uSize: { value: 0.2 }, uCol: { value: COL }, uFly: { value: C('#d2ff76') }, uFem: { value: C('#ffd070').multiplyScalar(1.8) }, uT: FU.uT, uWO: FU.uWO, uWD: FU.uWD };
+    const FLYU = { uLM: FU.uLM, uLMB: FU.uLMB, uFieldLvl: FU.uFieldLvl, uFemLvl: FU.uFemLvl, uTime: { value: 0 }, uPx: { value: 0.0007 }, uFogK: { value: 0.0072 }, uLock: { value: 0 }, uRand: { value: 1 }, uGap: { value: -10 }, uSize: { value: 0.2 }, uCol: { value: COL }, uFly: { value: C('#d2ff76') }, uFem: { value: C('#ffc860').multiplyScalar(2.8) }, uT: FU.uT, uWO: FU.uWO, uWD: FU.uWD };
     const flyMat = (dim, streak) => own(new THREE.ShaderMaterial({ uniforms: { ...FLYU, uDim: { value: dim }, uStreak: { value: streak } }, vertexShader: FLY_VERT, fragmentShader: FLY_FRAG, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     { const a = new THREE.Mesh(flyGeo, flyMat(1, 1)), b = new THREE.Mesh(flyGeo, flyMat(0.8, 2.4)); a.frustumCulled = b.frustumCulled = false; a.renderOrder = 6; b.renderOrder = 4; base.add(a); mirror.add(b); }
     // near fireflies by the boardwalk, small and faded close in; they flash with the wave where the camera is
@@ -615,21 +621,21 @@ export default {
     await tick();
 
     // ---------------- 8. the barred owl ----------------
-    const owl = makeBird({ body: '#4a4236', belly: '#7a6c58', wing: '#403a30', feather: '#2c2620', head: '#564c40', beakC: '#8a7a50', scale: 0.7, own, span: 1.0, beard: false });
+    const owl = makeBird({ body: '#7a6e5c', belly: '#c4b496', wing: '#6a604e', feather: '#4a4236', head: '#8a7e6a', beakC: '#c8b070', scale: 0.8, own, span: 1.0, beard: false });
     { const kids = owl.g.children, eye = kids[4], beak = kids[5], tail = kids[6], head = new THREE.Group(); head.position.set(0, 0.12, 0.5); owl.g.add(head);
       owl.neck.scale.set(1.2, 1.2, 0.2); owl.neck.position.set(0, 0.05, 0.42);
       for (const [o, x, y, z] of [[owl.hd, 0, 0, 0.05], [eye, 0, 0.03, 0.2], [beak, 0, -0.02, 0.22]]) { owl.g.remove(o); head.add(o); o.position.set(x, y, z); }
       owl.hd.scale.set(0.2, 0.19, 0.17); eye.scale.set(1.3, 1.6, 1); beak.scale.set(0.6, 0.6, 0.4); tail.scale.set(1, 1, 0.55); owl.head = head; }
     owl.g.visible = false; scene.add(owl.g);
     const OW0 = new THREE.Vector3(), OW1 = new THREE.Vector3();
-    { const a = along(103, 9), b = along(108, -3); OW0.set(a[0], 5.6, a[1]); OW1.set(b[0], 3.4, b[1]); }
+    { const a = along(100, 7), b = along(105, -2.5); OW0.set(a[0], 4.6, a[1]); OW1.set(b[0], 3.0, b[1]); }
     const OW2 = SNAGTOP.clone().add(new THREE.Vector3(0, 0.12, 0));
     const bez = (k, out) => { const a = (1 - k) * (1 - k), b = 2 * k * (1 - k), c = k * k; return out.set(OW0.x * a + OW1.x * b + OW2.x * c, OW0.y * a + OW1.y * b + OW2.y * c, OW0.z * a + OW1.z * b + OW2.z * c); };
     const oP = new THREE.Vector3(), oN = new THREE.Vector3();
     await tick();
 
     const camAtU = (u) => path.pointAt(clamp(u, 0, 1), new THREE.Vector3());
-    const gapStart = (T, d) => { const g = [6.0, 6.5 + d / 80 + 6 * 0.68, 14 + d / 160 + 7 * 0.72]; for (let k = 0; k < 40; k++) g.push(20.5 + d / 160 + 4.32 + 7 * k); let last = -10; for (const v of g) if (v <= T) last = v; return last; };
+    const gapStart = (T, d) => { const g = [6.0, 6.5 + d / 80 + 6 * 0.68, 13.2 + d / 160 + 7 * 0.72]; for (let k = 0; k < 40; k++) g.push(20.5 + d / 160 + 4.32 + 7 * k); let last = -10; for (const v of g) if (v <= T) last = v; return last; };
     let Tlive = 0;
     return {
       scene, path, duration: DUR, title: 'The Night the Fireflies Agree', ride: 'none', style: 'none', companion: 'none',
@@ -639,20 +645,20 @@ export default {
         { at: (() => { const p = along(34, -20); return [p[0], -1, p[1]]; })(), from: 0, to: uOf(2.6), fade: 0.3, weight: 0.85, steady: true },   // out and down over the creek and the valley of sparks
         { at: [CHIM[0], chimY + 1.6, CHIM[1]], from: uOf(2.6), to: uOf(6.6), fade: 0.25, weight: 0.85, steady: true },                                  // the lone chimney, fireflies in its hearth                                  // the lone chimney, fireflies in its hearth
         { at: (tm, uu) => { const s2 = uu * PL + 26, p = along(s2, 36); return [p[0], 5, p[1]]; }, from: uOf(6.4), to: uOf(10.4), fade: 0.3, weight: 0.75 },   // the wave arriving from the ridge
-        { at: (tm, uu) => { const k = ss(11.7, 12.2, Tof(uu)), o = owl.g.visible ? owl.g.position : OW2; return [lerp(femSpot.x, o.x, k), lerp(femSpot.y, o.y - 0.3, k), lerp(femSpot.z, o.z, k)]; }, from: uOf(11), to: uOf(14.2), fade: 0.3, weight: 0.85 },   // the answer in the ferns, then the owl landing
-        { at: [COL.x, 26, COL.z], from: uOf(14.2), to: uOf(16.9), fade: 0.3, weight: 0.8 },                                               // up the column
+        { at: (tm, uu) => { const k = ss(12.2, 12.7, Tof(uu)), o = owl.g.visible ? owl.g.position : OW2; return [lerp(femSpot.x, o.x, k), lerp(femSpot.y - 1.2, o.y - 0.3, k), lerp(femSpot.z, o.z, k)]; }, from: uOf(10.6), to: uOf(14.4), fade: 0.3, weight: 0.85 },   // the answer in the ferns, then the owl landing
+        { at: [COL.x, 30, COL.z], from: uOf(14.6), to: uOf(16.8), fade: 0.3, weight: 0.85, steady: true },                                               // up the column
       ],
-      portal: { shape: 'circle', style: 'ring', radius: 3, color: '#b8e890', veil: '#0e2226', glow: 0.3, halo: true, revealDistance: 700, drawWithin: 140, drawIn: 14 },
+      portal: { shape: 'circle', style: 'ring', radius: 3, color: '#b8e890', veil: '#3a6a48', glow: 0.3, halo: true, revealDistance: 700, drawWithin: 140, drawIn: 14 },
       post: { exposure: 1.0, bloom: { strength: 0.3, radius: 0.5, threshold: 0.95 }, grade: { saturation: 1.08, contrast: 1.06, tint: '#f2fff4', shadowTint: '#020a14', vignette: 0.3, grain: 0, aberration: 0 } },
       update(dt, t, camera, u) {
         if ((u || 0) < 0.02 || Tof(u || 0) > Tlive) Tlive = Tof(u || 0); else if (u > 0.8) Tlive += dt;   // in the tour's last hold the valley keeps flashing
         const T = Tlive, cp = camera.position; sky.update(dt, t, camera);
-        FU.uT.value = T; FLYU.uTime.value = t; FLYU.uLock.value = ss(3.5, 6.0, T); FLYU.uRand.value = 1 - ss(5.9, 6.3, T); FU.uFieldLvl.value = 0.08 + 0.37 * FLYU.uRand.value;
+        FU.uT.value = T; FLYU.uTime.value = t; FLYU.uLock.value = ss(3.5, 6.0, T); FLYU.uRand.value = 1 - ss(5.9, 6.3, T); FU.uFieldLvl.value = 0.3 + 0.15 * FLYU.uRand.value; { const gs = gapStart(T, (cp.x - WO.x) * WD.x + (cp.z - WO.y) * WD.y), l = T - gs - 0.45; FU.uFemLvl.value = gs > 0 ? ss(0, 0.4, l) * (1 - ss(1.6, 2.6, l)) : 0; }
         const dCam = (cp.x - WO.x) * WD.x + (cp.z - WO.y) * WD.y; FLYU.uGap.value = gapStart(T, dCam);
         FLYU.uPx.value = 2 / ((camera.projectionMatrix.elements[5] || 1.5) * 1920);
         waterU.uTime.value = t; waterU.uCam.value.copy(cp); ftime.value = t; fset.update(dt, t, camera);
         // the near fireflies: their own rhythm while alone, then the wave's pulses where the camera stands
-        const sync = maleSyncJS(cp.x, cp.z, T), rnd = FLYU.uRand.value, g = rnd + (1 - rnd) * sync;
+        const sync = maleSyncJS(cp.x, cp.z, T), rnd = FLYU.uRand.value, g = Math.max(0.3, rnd + (1 - rnd) * sync);
         nearFlies.uniforms.uBlink.value.w = 0.04 + (1 - rnd) * 0.96; nearFlies.uniforms.uCore.value = NC * g; nearFlies.uniforms.uHalo.value = NH * g;
         nearFlies.update(dt, t); ghosts.update(dt, t);
         foxfire.material.opacity = 0.26 + 0.06 * Math.sin(t * 0.7);
