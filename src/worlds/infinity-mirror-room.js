@@ -8,18 +8,18 @@
 // reflections, never fog: every copy is dimmer and cooler by |k| + |j|, and each cell is tilted by a fraction of a
 // degree (seeded) so the copies drift a little out of line, as real mirror rooms do.
 //
-// Flight (DUR 18 s, constant speed, z = 30 - 6 T; staged on T = u * DUR, the wingbeat and the orbs' breathing on t):
-//   0-2    the hook: low over the water (eye 1.3 m), the swallow 7 m ahead banking left; at T 1 a single soft wave of
-//          brightness runs away from us down the orbs at 25 m/s; the side mirrors show the bird as a flock.
-//   2.5-7  the drink: at T 2.8 the swallow touches the water 9 m ahead; rings spread, and every mirror copy of the
-//          water spreads its own (the ring shader folds x across the walls); the gaze dips to the rings, then turns
-//          out through the left mirror at the flock of copies (T 5-6.5).
-//   7-12   the climb: the swallow rises into the orbs between the threads, the camera rises 1.3 -> 2.6 and pitches
-//          after it; the colour weather turns from blue-green to pink-ochre.
-//   12-16  the landing: the swallow lands on top of an orb 4 m right of the path, 3.6 m up; the orb swings on its
-//          thread (a damped pendulum) and so does every copy; the gaze rests on the bird, then lets it go.
-//   16-18  the exit: it drops off, swoops past on the right and flies through the ring of orbs at the far end, its
-//          copies following it into theirs.
+// Flight (v2, DUR 19.2 s, constant speed, z = 30 - 6 T; staged on T = u * DUR, the wingbeat and the orbs' breathing on t).
+// A chase: the swallow is placed from the camera (bird = camera + a moving offset), 4-5.5 m ahead, so it never leaves the
+// frame; every beat is the bird and ONE of its mirror copies converging, framed where a 9:16 frame can hold the pair.
+//   0-4.5   the kiss and the ring trail: eye 1.0 m, the bird skims its own reflection; at T 1.3, 2.6 and 3.7 its beak
+//           meets its reflection's beak and a ring spreads; we fly over the chain of rings.
+//   4.6-7.2 the wall: it banks hard left to the left mirror; its wall copy flies at it out of the glass; at T 6.2 it flips
+//           away. The gaze turns ~40 deg left onto the pair.
+//   7.4-11.8 the ceiling: a steep climb to 7.8 m; its ceiling copy dives at it; at T 10.5 it rolls over and turns back
+//           down. The camera rises 1.0 -> 3.2 and pitches up ~50 deg; the colour weather turns pink-ochre.
+//   12-15.8 the brush: it dives to 2.3 m and its wingtip clips one large orb at T 13.2; the orb swings, flares, and a
+//           sphere of light runs through the room and every copy.
+//   16-19.2 the exit: it pulls ahead and shoots through the ring at T 17.6; the warm wave comes back up the hall.
 // Corridor (a narrow room; the lead's ruling): a clear tube of 2.6 m round the camera path for orbs and threads,
 // 3.5 m for any orb hanging lower than 3 m; the bird keeps 3 m and more; walls at x = +-5.
 // Portal: radius 4.5 centred 4.5 m over the water (the hall is 10 m wide and tall, so a larger ring would cut into the
@@ -32,7 +32,7 @@ import * as fx from '../kit/fx.js';
 // ---------------------------------------------------------------------------------------------------------------------
 // The hall and the route
 // ---------------------------------------------------------------------------------------------------------------------
-const DUR = 20.5, V = 6, Z0 = 30;   // round 2: the route runs 15 m further so the ring stays small until the last seconds
+const DUR = 19.2, V = 6, Z0 = 30;   // v2: the chase at the swallow's shoulder
 const W = 5, H = 10;                  // half width of the hall (mirror walls at x = +-W), height (mirror ceiling at y = H)
 const KX = 4, KY = 2;                 // reflected copies across the walls and across floor/ceiling
 const PR = 3, PZ = Z0 - V * DUR;      // the portal: radius, centre height = radius; it stands at the path's end
@@ -43,50 +43,63 @@ const TAU = Math.PI * 2;
 // The palette (sRGB hex; THREE.Color makes them linear)
 const PAL = { blue: '#4a7cff', teal: '#3fcf9a', ochre: '#d9a441', pink: '#f08aa8', bg: '#120a26' };
 
-// camera: an S-curve on the walkway; low to 6.5 s, up to 2.6 by 11 s, then up to the ring's centre for the last stretch
-const camX = (T) => (1.0 * Math.sin(0.42 * T) + 0.35 * Math.sin(1.1 * T)) * (1 - smoothstep(15.4, 17.1, T));
-const camY = (T) => 1.3 + 1.3 * smoothstep(6.5, 11, T) + (PR - 2.6) * smoothstep(15.0, 17.1, T);
+// camera: a soft S on the walkway (|x| <= 1.2), drifting to x -1 for the wall beat, back to the ring's centre by 15.5;
+// eye 1.0 until 7, up to 3.2 by 10.5 for the ceiling beat, down to the ring's centre (3) by 16
+const camX = (T) => {
+  const s = 0.8 * Math.sin(0.5 * T) + 0.3 * Math.sin(1.2 * T), dr = smoothstep(3.6, 5.0, T) * (1 - smoothstep(7.4, 8.8, T));
+  return (s * (1 - dr) - 1.0 * dr) * (1 - smoothstep(13.8, 15.5, T));
+};
+const camY = (T) => 1.0 + 2.2 * smoothstep(7.0, 10.5, T) - (3.2 - PR) * smoothstep(11.5, 16, T);
 const camAt = (T) => [camX(T), camY(T), Z0 - V * T];
 
 // ---------------------------------------------------------------------------------------------------------------------
-// The swallow's route: keys [T, x, y, z] (and an optional velocity), joined by cubic Hermite pieces. The tangent at a key
-// is the neighbours' difference unless given; the perch keys have zero velocity, so the bird slows to land and the two
-// perch keys hold it still between them.
+// The swallow: bird(T) = camera(T) + off(T). off's keys are [T, dx, y (absolute), dz] (and an optional velocity), joined
+// by cubic Hermite pieces; the tangent at a key is the neighbours' difference unless given. dz stays -4..-5.5 until the
+// exit (it never falls behind the hall: dz' > -6 everywhere), so the bird holds 25-35% of the frame's width.
 // ---------------------------------------------------------------------------------------------------------------------
-const PERCH = { x: 3.4, z: -62, r: 0.3, y0: 1.9, T0: 12.5, T1: 15.3 };   // below the eye (we look down at the bird against the lit water), 3.7 m right of the path (low-orb rule 3.5 m)   // the orb it lands on (y0: the orb's centre)
-const PERCH_Y = PERCH.y0 + PERCH.r + 0.012;
-const BK = [
-  [0.0, 1.6, 0.9, 25.8],                         // the hook: 4.5 m ahead, crossing right to left over its reflection
-  [1.0, -1.5, 0.75, 20.0],
-  [2.0, -0.4, 0.5, 13.8],
-  [2.8, 0.5, 0.07, 4.2, [0.9, 0.0, -6.6]],      // the drink: skimming level, beak to the water
-  [3.6, 0.6, 0.8, -1.5],
-  [5.0, -2.2, 1.6, -5.0],                        // close on our left: its copies line up across the left mirrors
-  [6.5, -2.5, 1.9, -13.8],
-  [7.6, -1.8, 2.6, -24.0],
-  [9.0, -2.4, 5.3, -34.5],
-  [10.5, -0.6, 7.0, -42.0],
-  [11.6, 2.3, 5.4, -54.5],
-  [PERCH.T0, PERCH.x, PERCH_Y, PERCH.z, [0, 0, 0]],
-  [PERCH.T1, PERCH.x, PERCH_Y, PERCH.z, [0, 0, 0]],
-  [16.2, 2.6, 3.4, -71.0],
-  [17.0, 1.0, 3.8, -79.0],                       // ahead of us, crossing into the middle of the frame
-  [18.0, 0.5, 3.3, -88.0],
-  [18.6, 0.4, 3.2, PZ],                          // through the ring, a little right of and above its centre
-  [19.0, 0.3, 3.2, PZ - 4.5],
+const OK = [
+  [0.0, 0.0, 0.40, -4.5],                        // the hook: on the path line over its reflection, belly to belly
+  [0.7, 0.06, 0.32, -4.5],
+  [1.3, 0.0, 0.07, -4.5, [-0.1, 0, 0]],          // the kiss: beak to its reflection's beak
+  [1.9, 0.25, 0.46, -4.8],
+  [2.6, 0.1, 0.07, -5.0, [-0.35, 0, -0.3]],     // the second touch
+  [3.15, -0.25, 0.46, -5.2],
+  [3.7, -0.4, 0.07, -5.5, [-0.4, 0, 0]],         // the third touch
+  [4.3, -1.0, 0.6, -5.0],
+  [5.0, -2.0, 1.1, -4.6],                        // banking hard left to the left mirror
+  [5.6, -2.75, 1.35, -4.4],
+  [6.2, -3.2, 1.45, -4.5, [0, 0.1, 0]],          // wingtip to wingtip with its wall copy (x -4.2 vs -5.8)
+  [6.8, -2.1, 1.65, -4.3],                       // flipped away
+  [7.4, -0.9, 2.6, -4.2],
+  [8.2, -0.4, 4.4, -4.0],                        // the climb
+  [9.2, 0.0, 6.4, -4.0],
+  [10.2, 0.2, 7.75, -4.2, [0.2, 0.55, -0.2]],     // nearly touching its ceiling copy
+  [10.6, 0.3, 7.9, -4.4, [0.3, 0, -0.5]],        // the roll over the top
+  [11.3, 0.6, 6.4, -4.6],
+  [12.0, 1.0, 4.2, -4.6],                        // diving back down
+  [12.6, 1.5, 2.6, -4.5],
+  [13.2, 1.8, 2.3, -4.5, [0.3, 0, 0]],           // the brush: its right wingtip clips the brush orb
+  [13.9, 1.2, 2.5, -4.8],
+  [14.6, 0.4, 2.8, -5.0],
+  [15.3, -0.35, 3.0, -5.0],
+  [16.0, 0.0, 3.0, -5.2],
+  [16.8, 0.1, 3.05, -7.2],                       // pulling ahead
+  [17.6, 0.2, 3.1, -9.6],                        // through the ring (z = PZ)
+  [18.4, 0.2, 3.1, -12.0],
+  [19.7, 0.2, 3.1, -14.0],
 ];
 const _bt0 = [0, 0, 0], _bt1 = [0, 0, 0];
 function keyTangent(i, out) {
-  const k = BK[i];
+  const k = OK[i];
   if (k[4]) { out[0] = k[4][0]; out[1] = k[4][1]; out[2] = k[4][2]; return out; }
-  const a = BK[Math.max(0, i - 1)], b = BK[Math.min(BK.length - 1, i + 1)], dt = b[0] - a[0];
+  const a = OK[Math.max(0, i - 1)], b = OK[Math.min(OK.length - 1, i + 1)], dt = b[0] - a[0];
   for (let c = 0; c < 3; c++) out[c] = (b[c + 1] - a[c + 1]) / dt;
   return out;
 }
-function birdAt(T, out) {
-  T = clamp(T, BK[0][0], BK[BK.length - 1][0]);
-  let i = 0; while (i < BK.length - 2 && T > BK[i + 1][0]) i++;
-  const a = BK[i], b = BK[i + 1], dt = b[0] - a[0], s = (T - a[0]) / dt, s2 = s * s, s3 = s2 * s;
+function offAt(T, out) {
+  T = clamp(T, OK[0][0], OK[OK.length - 1][0]);
+  let i = 0; while (i < OK.length - 2 && T > OK[i + 1][0]) i++;
+  const a = OK[i], b = OK[i + 1], dt = b[0] - a[0], s = (T - a[0]) / dt, s2 = s * s, s3 = s2 * s;
   const h00 = 2 * s3 - 3 * s2 + 1, h10 = s3 - 2 * s2 + s, h01 = -2 * s3 + 3 * s2, h11 = s3 - s2;
   keyTangent(i, _bt0); keyTangent(i + 1, _bt1);
   return out.set(
@@ -94,10 +107,19 @@ function birdAt(T, out) {
     h00 * a[2] + h10 * dt * _bt0[1] + h01 * b[2] + h11 * dt * _bt1[1],
     h00 * a[3] + h10 * dt * _bt0[2] + h01 * b[3] + h11 * dt * _bt1[2]);
 }
+// the camera's own route (set in build): the bird is placed from the very point the engine puts the camera
+let ROUTE = null;
+const _cp = new THREE.Vector3();
+function birdAt(T, out) {
+  offAt(T, out);
+  if (ROUTE) ROUTE.pointAt(T / DUR, _cp); else _cp.set(camX(T), camY(T), Z0 - V * T);
+  out.x += _cp.x; out.z += _cp.z; return out;
+}
+// the brush orb (placed in build, 1.05 m right of the bird at the moment of the brush)
+const BRUSH = { T0: 13.2, r: 0.4, x: 0, y0: 0, z: 0 };
 // how much the wings beat (0 glide .. 1 full burst), by staged time: swallows beat in bursts and glide between
 function flapAmount(T) {
-  if (T >= PERCH.T0 - 0.05 && T <= PERCH.T1) return 0;
-  const bursts = [[0.0, 0.9], [2.25, 2.7], [3.0, 3.9], [5.2, 6.0], [7.0, 8.4], [8.9, 10.3], [10.8, 11.5], [12.0, 12.45], [PERCH.T1, 17.8]];
+  const bursts = [[0.0, 0.5], [1.35, 1.9], [2.65, 3.1], [3.75, 4.4], [6.2, 6.9], [7.3, 9.6], [12.2, 12.8], [13.3, 14.1], [15.6, 17.6]];
   let f = 0.18;   // even a glide keeps a little flicker of the tips
   for (const [a, b] of bursts) f = Math.max(f, smoothstep(a - 0.15, a + 0.1, T) * (1 - smoothstep(b - 0.1, b + 0.15, T)));
   return f;
@@ -116,6 +138,11 @@ export default {
     const R = ctx.rng, scene = new THREE.Scene(), trash = [], own = (o) => { trash.push(o); return o; };
     const tick = async () => { if (ctx.yield) await ctx.yield(); };
     const { path } = pathFrom((s) => camAt(s * DUR), 72); await tick();
+    ROUTE = path;   // the bird is placed from the camera's own route
+    {
+      const b = birdAt(BRUSH.T0, new THREE.Vector3());
+      BRUSH.x = b.x + 1.05; BRUSH.y0 = b.y + 0.15; BRUSH.z = b.z - 0.05;   // 1.05 m right of the bird: its wingtip (0.57 m) clips the orb (r 0.4)
+    }
     scene.background = new THREE.Color(PAL.bg);
     const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color();
     const C = { blue: new THREE.Color(PAL.blue), teal: new THREE.Color(PAL.teal), ochre: new THREE.Color(PAL.ochre), pink: new THREE.Color(PAL.pink) };
@@ -156,7 +183,8 @@ export default {
     // =================================================================================================================
     // THE SWALLOW (in `base`; every cell holds a clone whose transforms are copied from it each frame)
     // =================================================================================================================
-    const BLUE_BACK = [0.035, 0.06, 0.24], BELLY = [1.55, 1.42, 1.2], RUST = [1.45, 0.42, 0.12], DARK = [0.05, 0.05, 0.07];   // blue-black back, pale belly, rust throat
+    // v2: a lit steel blue back (the old blue-black vanished against the dark water when seen from behind)
+    const BLUE_BACK = [0.1, 0.17, 0.6], BELLY = [1.55, 1.42, 1.2], RUST = [1.45, 0.42, 0.12], DARK = [0.05, 0.05, 0.07];   // blue-black back, pale belly, rust throat
     const paint = (geo, fn) => { const p = geo.attributes.position, col = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const c = fn(p.getX(i), p.getY(i), p.getZ(i)); col[i * 3] = c[0]; col[i * 3 + 1] = c[1]; col[i * 3 + 2] = c[2]; } geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); return geo; };
     // body: an ellipsoid along +z (forward), slimmer behind; blue back, buff belly, rust throat and forehead
     const bodyG = own(new THREE.SphereGeometry(1, 18, 12));
@@ -168,7 +196,7 @@ export default {
         let c = y > -0.3 ? BLUE_BACK : BELLY;   // the pale belly is the underside only
         if (z > 0.55 && y < 0.3 && y > -0.75) c = RUST;            // the throat
         if (z > 0.86 && y > 0.25) c = RUST;                         // the forehead
-        if (y > 0.5 && z > -0.3 && z < 0.5) c = [0.06, 0.12, 0.48];  // the steel-blue gloss along the back
+        if (y > 0.5 && z > -0.3 && z < 0.5) c = [0.16, 0.32, 1.0];  // the steel-blue gloss along the back
         col[i * 3] = c[0]; col[i * 3 + 1] = c[1]; col[i * 3 + 2] = c[2];
       }
       bodyG.setAttribute('color', new THREE.BufferAttribute(col, 3)); bodyG.computeVertexNormals();
@@ -177,14 +205,14 @@ export default {
     const shapeGeo = (pts, col) => { const s = new THREE.Shape(); s.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) s.lineTo(pts[i][0], pts[i][1]); return paint(new THREE.ShapeGeometry(s).rotateX(Math.PI / 2), col); };
     // the forked tail: two long outer streamers with a deep notch between them
     const tailG = own(shapeGeo([[-0.024, -0.075], [-0.09, -0.47], [-0.074, -0.465], [-0.02, -0.2], [0, -0.13], [0.02, -0.2], [0.074, -0.465], [0.09, -0.47], [0.024, -0.075]],   // long streamers, deeply split
-      (x, y, z) => (z < -0.3 ? [0.03, 0.05, 0.2] : BLUE_BACK)));
+      (x, y, z) => (z < -0.3 ? [0.08, 0.13, 0.5] : BLUE_BACK)));
     // the wings: a short arm and a long swept hand (sickle-shaped, pointed), right wing along +x; the left is its mirror
-    const wingCol = (x, y, z) => (x * x > 0.02 ? [0.03, 0.05, 0.2] : BLUE_BACK);
+    const wingCol = (x, y, z) => (x * x > 0.02 ? [0.08, 0.13, 0.5] : BLUE_BACK);
     const armG = own(shapeGeo([[0, 0.032], [0.122, 0.028], [0.124, -0.046], [0, -0.052]], wingCol));
-    const handG = own(shapeGeo([[0, 0.028], [0.08, 0.02], [0.17, -0.055], [0.238, -0.15], [0.15, -0.088], [0.06, -0.062], [0, -0.046]], (x) => (x > 0.15 ? [0.025, 0.035, 0.14] : [0.04, 0.07, 0.26])));
+    const handG = own(shapeGeo([[0, 0.028], [0.08, 0.02], [0.17, -0.055], [0.238, -0.15], [0.15, -0.088], [0.06, -0.062], [0, -0.046]], (x) => (x > 0.15 ? [0.07, 0.1, 0.4] : [0.1, 0.18, 0.66])));
     const armGL = own(armG.clone().scale(-1, 1, 1)), handGL = own(handG.clone().scale(-1, 1, 1));
     const birdMat = own(new THREE.MeshMatcapMaterial({ matcap: birdMC, vertexColors: true, side: THREE.DoubleSide }));
-    const BIRD_S = 2.4;   // about 1.8 m across the wings: a swallow made readable at 9:16 among the orbs
+    const BIRD_S = 1.85;   // about 1.3 m across the wings: from behind its swept wings read narrower than the span
     const bird = new THREE.Group(); bird.name = 'swallow';
     const body = new THREE.Mesh(bodyG, birdMat), beak = new THREE.Mesh(beakG, birdMat), tail = new THREE.Mesh(tailG, birdMat);
     body.position.set(0, 0, 0); tail.position.set(0, 0.004, 0);
@@ -206,6 +234,16 @@ export default {
     // THE ORBS: hanging orbs placed by rule (corridor, bird's route, portal gap, spacing), the perch orb, and the hoop
     // =================================================================================================================
     const birdSamples = []; for (let T = 0; T <= 19.7; T += 0.04) birdSamples.push(birdAt(T, new THREE.Vector3()));
+    const climbSamples = []; for (let T = 8; T <= 11; T += 0.1) climbSamples.push(birdAt(T, new THREE.Vector3()));
+    const sightLines = [], camV = new THREE.Vector3(), bV = new THREE.Vector3();
+    const addLine = (a, b, pad) => { const bx = b.x - a.x, by = b.y - a.y, bz = b.z - a.z; sightLines.push({ ax: a.x, ay: a.y, az: a.z, bx, by, bz, L2: bx * bx + by * by + bz * bz + 1e-6, H2: bx * bx + bz * bz + 1e-6, zmin: Math.min(a.z, b.z), zmax: Math.max(a.z, b.z), pad }); };
+    for (let T = 0; T <= 19.01; T += 0.25) {
+      path.pointAt(T / DUR, camV); birdAt(T, bV); addLine(camV, bV, 0.8);
+      // the wall pair: the line to the wall copy meets the mirror at M; camera to M, and M back to the bird
+      if (T >= 4.75 && T <= 7.0) { const cx = -2 * W - bV.x, f = (-W - camV.x) / (cx - camV.x), M = new THREE.Vector3(-W, camV.y + (bV.y - camV.y) * f, camV.z + (bV.z - camV.z) * f); addLine(camV, M, 0.6); addLine(M, bV, 0.6); }
+      // the ceiling pair, the same through the ceiling
+      if (T >= 8.5 && T <= 11.0) { const cy = 2 * H - bV.y, f = (H - camV.y) / (cy - camV.y), M = new THREE.Vector3(camV.x + (bV.x - camV.x) * f, H, camV.z + (bV.z - camV.z) * f); addLine(camV, M, 0.6); addLine(M, bV, 0.6); }
+    }
     const od = [];
     const clearOf = (x, y, z, r) => {
       if (Math.abs(x) > W - r - 0.14 || y - r < 0.7 || y + r > H - 1.6) return false;
@@ -225,14 +263,20 @@ export default {
         if (hd < r + 0.6 && s.y > y - r - 0.5) return false;
         if (Math.hypot(hd, s.y - y) < r + 1.1) return false;
       }
-      // the perch orb's own room (it swings)
-      if (Math.hypot(x - PERCH.x, z - PERCH.z) < 1.6 + r) return false;
-      // a clear sight line from the camera to the perch for T 12-15.3, so no orb hides the landing
-      for (let Tq = 12; Tq <= 15.3; Tq += 0.25) {
-        const ax = camX(Tq), ay = camY(Tq), az = Z0 - V * Tq, bx = PERCH.x - ax, by = PERCH.y0 + 0.4 - ay, bz = PERCH.z - az, L2 = bx * bx + by * by + bz * bz;
-        const f = clamp(((x - ax) * bx + (y - ay) * by + (z - az) * bz) / L2, 0, 1), ex = ax + bx * f - x, ey = ay + by * f - y, ez = az + bz * f - z;
-        if (Math.sqrt(ex * ex + ey * ey + ez * ez) < 0.8 + r) return false;
+      // the brush orb's own room (it swings)
+      if (Math.hypot(x - BRUSH.x, z - BRUSH.z) < 1.6 + r) return false;
+      // clear sight lines: camera to bird for every T, and the mirror paths of the pair beats (camera to the mirror, the
+      // mirror to the bird) for the wall and the ceiling; a line is blocked by an orb near it, or by the thread of an
+      // orb hanging under it
+      for (const L of sightLines) {
+        if (z > L.zmax + r + 1 || z < L.zmin - r - 1) continue;
+        const f = clamp(((x - L.ax) * L.bx + (y - L.ay) * L.by + (z - L.az) * L.bz) / L.L2, 0, 1), ex = L.ax + L.bx * f - x, ey = L.ay + L.by * f - y, ez = L.az + L.bz * f - z;
+        if (Math.sqrt(ex * ex + ey * ey + ez * ez) < L.pad + r) return false;
+        const g = clamp(((x - L.ax) * L.bx + (z - L.az) * L.bz) / L.H2, 0, 1), hx = L.ax + L.bx * g - x, hz = L.az + L.bz * g - z;
+        if (Math.hypot(hx, hz) < 0.35 + r && y < L.ay + L.by * g) return false;
       }
+      // the climb gap: nothing over the bird on its line to its ceiling copy (T 8-11)
+      for (const s of climbSamples) if (y + r > s.y - 0.3 && Math.hypot(x - s.x, z - s.z) < 1.5 + r) return false;
       for (const o of od) { const dx = o.x - x, dy = o.y - y, dz = o.z - z; if (dx * dx + dy * dy + dz * dz < (o.r + r + 0.14) ** 2) return false; }
       return true;
     };
@@ -254,8 +298,8 @@ export default {
       if ((tries & 511) === 0) await tick();
     }
     const NH = od.length;      // hanging orbs (each with a thread)
-    // the perch orb: a larger orb of dusk pink, hanging 4 m right of the path
-    const PERCH_I = od.length; od.push({ x: PERCH.x, y: PERCH.y0, z: PERCH.z, r: PERCH.r, slot: 0, h: 0.7, ph: 1.3, br: 0.14, sw: 0, far: 1, perch: true });
+    // the brush orb: a larger orb of dusk pink, 2.8 m right of the path, that the swallow's wingtip clips
+    od.push({ x: BRUSH.x, y: BRUSH.y0, z: BRUSH.z, r: BRUSH.r, slot: 0, h: 0.7, ph: 1.3, br: 0.14, sw: 0, far: 1, perch: true });
     const NT = od.length;      // orbs with threads
     // the hoop at the far end: small orbs strung round the portal, the same orbs as the room
     const HOOP_N = 64;
@@ -481,8 +525,9 @@ export default {
     };
     waterPlane(0, 0); waterPlane(2 * H, 0.5); waterPlane(-2 * H, 2);
     // the dip's rings (x, z, start T, strength); one faint old ring is already spreading when we arrive
-    const DIP = new THREE.Vector3(); birdAt(2.8, DIP);
-    const RINGS = [[-1.6, 19.5, -1.2, 0.45], [DIP.x, DIP.z, 2.8, 1.0], [DIP.x + 0.05, DIP.z - 0.12, 3.02, 0.6], [DIP.x + 0.1, DIP.z - 0.3, 3.3, 0.35], [DIP.x + 0.35, DIP.z - 2.2, 3.12, 0.4], [DIP.x - 0.2, DIP.z + 1.1, 2.62, 0.22]];
+    // the three touches (T 1.3, 2.6, 3.7) at the bird's own point, each with a fainter second ring just after
+    const RINGS = [];
+    for (const [Td, k] of [[1.3, 1.0], [2.6, 0.95], [3.7, 0.95]]) { const D = birdAt(Td, new THREE.Vector3()); RINGS.push([D.x, D.z, Td, k], [D.x + 0.06, D.z - 0.25, Td + 0.2, 0.5 * k]); }
     RINGS.forEach((r, i) => ringU[i].set(r[0], r[1], r[2], r[3]));
 
     // =================================================================================================================
@@ -530,33 +575,18 @@ export default {
     // the frame's state
     // =================================================================================================================
     const bp = new THREE.Vector3(), bq = new THREE.Vector3(), bm2 = new THREE.Vector3(), fw = new THREE.Vector3(), up = new THREE.Vector3(), rt = new THREE.Vector3(), acc = new THREE.Vector3();
-    const qFly = new THREE.Quaternion(), qPerch = new THREE.Quaternion(), basis = new THREE.Matrix4(), Y = new THREE.Vector3(0, 1, 0);
-    const swingDir = new THREE.Vector3(PERCH.x - 2.3, 0, PERCH.z + 54.5).normalize();
-    const PEND_L = H - PERCH.y0;
-    const perchSwing = (T) => {
-      let th = 0;
-      if (T > PERCH.T0) { const s = T - PERCH.T0; th += 0.09 * Math.exp(-s / 2.6) * Math.sin(TAU * 0.3 * s); }
-      if (T > PERCH.T1) { const s = T - PERCH.T1; th -= 0.06 * Math.exp(-s / 2.6) * Math.sin(TAU * 0.3 * s); }
-      return th;
-    };
-    const perchPos = (T, out) => { const th = perchSwing(T); return out.set(PERCH.x + swingDir.x * PEND_L * Math.sin(th), H - PEND_L * Math.cos(th), PERCH.z + swingDir.z * PEND_L * Math.sin(th)); };
-    {
-      // perched: facing a little left of straight down the hall, head up a touch
-      fw.set(-0.35, 0.12, -1).normalize(); rt.crossVectors(Y, fw).normalize(); up.crossVectors(fw, rt);
-      qPerch.setFromRotationMatrix(basis.makeBasis(rt, up, fw));
-    }
+    const qFly = new THREE.Quaternion(), qRoll = new THREE.Quaternion(), basis = new THREE.Matrix4(), Y = new THREE.Vector3(0, 1, 0), ZF = new THREE.Vector3(0, 0, 1);
+    // the brush orb swings on its thread (a damped pendulum) the way the wingtip pushed it: along the bird's flight
+    const swingDir = new THREE.Vector3(0.35, 0, -1).normalize();
+    const PEND_L = H - BRUSH.y0;
+    const perchSwing = (T) => (T > BRUSH.T0 ? 0.075 * Math.exp(-(T - BRUSH.T0) / 2.6) * Math.sin(TAU * 0.3 * (T - BRUSH.T0)) : 0);
+    const perchPos = (T, out) => { const th = perchSwing(T); return out.set(BRUSH.x + swingDir.x * PEND_L * Math.sin(th), H - PEND_L * Math.cos(th), BRUSH.z + swingDir.z * PEND_L * Math.sin(th)); };
     const orbPos = new THREE.Vector3(), WHITE = new THREE.Color(1, 1, 1);
     const weatherOf = (T, z, t) => clamp(smoothstep(7, 12, T) + 0.22 * Math.sin(z * 0.045 - t * 0.3), 0, 1);
 
     const pose = (T, t) => {
       // ---- the swallow ----
       birdAt(T, bp);
-      const perched = T >= PERCH.T0 && T <= PERCH.T1;
-      if (perched || (T > PERCH.T0 - 0.4 && T < PERCH.T1 + 0.3)) {
-        perchPos(T, orbPos);
-        const blend = smoothstep(PERCH.T0 - 0.4, PERCH.T0, T) * (1 - smoothstep(PERCH.T1, PERCH.T1 + 0.3, T));
-        bp.x += (orbPos.x - PERCH.x) * blend; bp.y += (orbPos.y + PERCH.r + 0.012 - PERCH_Y) * blend; bp.z += (orbPos.z - PERCH.z) * blend;
-      }
       // heading from the route ahead; bank from the sideways pull of the turn (the lift leans into it)
       birdAt(T + 0.06, bq); birdAt(Math.max(0, T - 0.06), bm2);
       fw.subVectors(bq, birdAt(T, acc)).normalize();
@@ -568,19 +598,20 @@ export default {
       up.copy(Y).multiplyScalar(9.8).add(acc).normalize();
       rt.crossVectors(up, fw).normalize(); up.crossVectors(fw, rt);
       qFly.setFromRotationMatrix(basis.makeBasis(rt, up, fw));
-      const pw = smoothstep(PERCH.T0 - 0.35, PERCH.T0, T) * (1 - smoothstep(PERCH.T1, PERCH.T1 + 0.25, T));
-      bird.quaternion.copy(qFly).slerp(qPerch, pw);
+      // over the top of the climb it rolls right over (one full roll about its own axis, T 10.3-11.1)
+      qRoll.setFromAxisAngle(ZF, TAU * smoothstep(10.3, 11.1, T));
+      bird.quaternion.copy(qFly).multiply(qRoll);
       bird.position.copy(bp);
       bird.visible = bp.z > PZ - 0.6;
-      // ---- the wings: bursts of about 8 Hz, glides between; folded along the back when perched ----
-      const fa = flapAmount(T), beat = Math.sin(TAU * 8.2 * t), fold = pw;
+      // ---- the wings: bursts of about 8 Hz, glides between ----
+      const fa = flapAmount(T), beat = Math.sin(TAU * 8.2 * t), fold = 0;
       const flap = (0.08 + fa * 0.95 * beat) * (1 - fold), flex = (fa * 0.45 * Math.sin(TAU * 8.2 * t - 0.9)) * (1 - fold);
       for (const [w, s] of [[wR, 1], [wL, -1]]) {
         w.sh.rotation.set(-0.05 * fold, s * (0.18 + 1.25 * fold), s * (flap - 0.35 * fold), 'YXZ');
         w.wr.rotation.set(0, s * (0.05 + 0.5 * fold), s * flex, 'YXZ');
       }
       tail.rotation.set(0.12 * (1 - fa) * (1 - fold) - 0.1 * fold, 0, 0);
-      birdBody.rotation.x = -0.05 * fold;   // perched, the body sits a little nose-up
+      birdBody.rotation.x = 0;
       bird.updateMatrix();
       for (const c of cells) {
         for (let i = 0; i < birdNodes.length; i++) { const a = birdNodes[i], b = c.nodes[i]; b.position.copy(a.position); b.quaternion.copy(a.quaternion); b.scale.copy(a.scale); }
@@ -595,7 +626,7 @@ export default {
         if (d.perch) { perchPos(T, orbPos); x = orbPos.x; y = orbPos.y; z = orbPos.z; }
         else if (!d.hoop) { const kk = 0.4 + 1.2 * (H - d.y) / H; x += 0.05 * kk * d.sw * Math.sin(t * 0.42 + d.ph); z += 0.04 * kk * d.sw * Math.sin(t * 0.31 + d.ph * 1.7); }
         _p.set(x, y, z); _q.identity(); _s.setScalar(d.r); orbs.setMatrixAt(i, _m.compose(_p, _q, _s));
-        if (i < NT) { const o = i * 6; thrPos[o] = x; thrPos[o + 1] = y + d.r; thrPos[o + 2] = z; thrPos[o + 3] = d.perch ? PERCH.x : x; thrPos[o + 4] = H; thrPos[o + 5] = d.perch ? PERCH.z : z; }
+        if (i < NT) { const o = i * 6; thrPos[o] = x; thrPos[o + 1] = y + d.r; thrPos[o + 2] = z; thrPos[o + 3] = d.perch ? BRUSH.x : x; thrPos[o + 4] = H; thrPos[o + 5] = d.perch ? BRUSH.z : z; }
         const w = clamp(weatherOf(T, z, t) + (d.h - 0.5) * 0.35, 0, 1);
         const cool = d.slot ? C.teal : C.blue, warm = d.slot ? C.ochre : C.pink;
         _c.copy(cool).lerp(warm, w);
@@ -604,11 +635,11 @@ export default {
         let k = (1.9 + 0.35 * breath) * d.far;
         if (wave > -100) { const s = (Z0 - z) - wave; k *= 1 + 0.75 * Math.exp(-(s * s) / (2 * WAVE_W * WAVE_W)) * (1 - smoothstep(4, 8, T)); }
         if (d.hoop) k *= 0.9 + 0.25 * Math.sin(d.a * 3 - t * 0.6);
-        // the landing: a sphere of light spreads out from the perch orb through the room (and every copy) at 9 m/s
-        if (T > PERCH.T0 && T < 16.5) { const dd = Math.hypot(x - PERCH.x, y - PERCH.y0, z - PERCH.z), s = dd - 9 * (T - PERCH.T0); k *= 1 + 1.5 * Math.exp(-(s * s) / 3) * (1 - smoothstep(14.8, 16.5, T)); }
+        // the brush: a sphere of light spreads out from the brush orb through the room (and every copy) at 9 m/s
+        if (T > BRUSH.T0 && T < 17.0) { const dd = Math.hypot(x - BRUSH.x, y - BRUSH.y0, z - BRUSH.z), s = dd - 9 * (T - BRUSH.T0); k *= 1 + 1.5 * Math.exp(-(s * s) / 3) * (1 - smoothstep(15.3, 17.0, T)); }
         // as the swallow nears the ring, a warm wave comes back up the hall from it, toward us, at 22 m/s
-        if (T > 16.4) { const s = (z - PZ) - 22 * (T - 16.4); const e = Math.exp(-(s * s) / 18); k *= 1 + 0.8 * e; _c.lerp(C.ochre, 0.6 * e); }
-        if (d.perch && T > PERCH.T0) k *= 1 + 1.5 * Math.exp(-(T - PERCH.T0) * 1.7);   // the landing: the orb flares to about 2.5x and settles in ~0.6 s
+        if (T > 16.9) { const s = (z - PZ) - 22 * (T - 16.9); const e = Math.exp(-(s * s) / 18); k *= 1 + 0.8 * e; _c.lerp(C.ochre, 0.6 * e); }
+        if (d.perch && T > BRUSH.T0) k *= 1 + 1.5 * Math.exp(-(T - BRUSH.T0) * 1.7);   // the brush: the orb flares to about 2.5x and settles in ~0.6 s
         orbs.setColorAt(i, _c.multiplyScalar(k));
       }
       orbs.instanceMatrix.needsUpdate = true; orbs.instanceColor.needsUpdate = true; thrG.attributes.position.needsUpdate = true;
@@ -637,24 +668,27 @@ export default {
     pose(0, 0);
     await tick();
 
-    // a look at the swallow (its position at the look's moment), or at one of its mirror images
-    const birdLook = (img = 0) => (tm, uu) => { const T = clamp(uu, 0, 1) * DUR, v = birdAt(T, new THREE.Vector3()); if (T >= PERCH.T0 - 0.4 && T <= PERCH.T1 + 0.3) { perchPos(T, orbPos); v.y = orbPos.y + PERCH.r; v.x = orbPos.x; v.z = orbPos.z; } return img ? [-2 * W - v.x, v.y, v.z] : [v.x, v.y, v.z]; };
-    const U = (T) => T / DUR;
-    // out through the left mirror: about 74 deg of yaw toward x = -16 at the bird's depth (sideways, never backward), where
-    // its copies across the left mirrors (x -7.6, -22, -28, -42) stand side by side, each a reflection smaller and dimmer
-    const sideLook = (tm, uu) => { const T = clamp(uu, 0, 1) * DUR, c = camAt(T), v = birdAt(T, new THREE.Vector3()); return [c[0] - 16, v.y + 0.3, Math.min(v.z, c[2] - 3)]; };
-    // the climb: toward the bird's bearing, pitched 22 deg up at first and 40 deg by T 9.2
-    const climbLook = (tm, uu) => { const T = clamp(uu, 0, 1) * DUR, c = camAt(T), v = birdAt(T, new THREE.Vector3()); const dx = v.x - c[0], dz = v.z - c[2], dh = Math.max(4, Math.hypot(dx, dz)); const pitch = (12 + 10 * smoothstep(7.3, 9.2, T)) * Math.PI / 180; return [c[0] + dx, c[1] + dh * Math.tan(pitch), c[2] + dz]; };
+    // the looks, all built on the bird's position at the look's moment
+    const U = (T) => T / DUR, lookV = new THREE.Vector3();
+    const bAt = (uu) => birdAt(clamp(uu, 0, 1) * DUR, lookV);
+    // the pair in the water: bird and reflection centred together
+    const pairLook = (tm, uu) => { const v = bAt(uu); return [v.x, 0.3 * v.y, v.z]; };
+    // the wall: the mirror point between the bird and its wall copy (yaw ~40 deg left)
+    const wallLook = (tm, uu) => { const v = bAt(uu); return [-W, v.y - 0.7, v.z]; };
+    // the ceiling: above the bird toward its ceiling copy, so the gaze pitches ~45-52 deg and holds both
+    const ceilLook = (tm, uu) => { const v = bAt(uu); return [v.x, v.y + 0.15 * (H - v.y) + 0.3, v.z]; };
+    // the brush: between the bird and the brush orb while the orb is ahead, then the bird alone
+    const brushLook = (tm, uu) => { const T = clamp(uu, 0, 1) * DUR, v = bAt(uu), k = 0.5 * (1 - smoothstep(13.4, 14.2, T)); perchPos(T, orbPos); return [v.x + (orbPos.x - v.x) * k, v.y + (orbPos.y - v.y) * k, v.z + (orbPos.z - v.z) * k]; };
+    const birdLook = (tm, uu) => { const v = bAt(uu); return [v.x, v.y, v.z]; };
     return {
       scene, path, duration: DUR, title: 'The Infinity Room', ride: 'none', style: 'none', companion: 'none',
       camera: { fov: 70, near: 0.15, nearThrough: 0.4, far: 700, lookAhead: 8, sway: 0.4, bank: 0.05 },
       pois: [
-        { at: birdLook(), from: U(0), to: U(2.4), fade: 0.25, weight: 0.85 },                              // the swallow ahead
-        { at: [DIP.x, 0, DIP.z - 0.4], from: U(2.6), to: U(4.6), fade: 0.3, weight: 0.7 },                // the rings of the drink
-        { at: sideLook, from: U(4.7), to: U(6.4), fade: 0.35, weight: 0.85 },                                 // a real turn out through the left mirror: the bird's copies side by side
-        { at: climbLook, from: U(7.3), to: U(11.4), fade: 0.25, weight: 1 },                               // the climb: the gaze tips up 22-40 deg, the ceiling copies stack as a column
-        { at: birdLook(), from: U(12.2), to: U(14.9), fade: 0.2, weight: 1 },                         // the perched bird
-        { at: birdLook(), from: U(15.3), to: U(17.2), fade: 0.3, weight: 0.45 },                         // it swoops past on the right
+        { at: pairLook, from: U(0), to: U(4.4), fade: 0.25, weight: 0.85 },                            // the kiss and the ring trail
+        { at: wallLook, from: U(4.6), to: U(7.2), fade: 0.3, weight: 0.95, arc: true },                // it meets itself in the wall
+        { at: ceilLook, from: U(7.4), to: U(11.8), fade: 0.3, weight: 1, arc: true },                  // it meets itself in the ceiling
+        { at: brushLook, from: U(12.0), to: U(15.8), fade: 0.25, weight: 0.9 },                        // the brush
+        { at: birdLook, from: U(16.0), to: U(18.6), fade: 0.3, weight: 0.5 },                          // the exit: the bird and the ring on one line
       ],
       portal: { shape: 'circle', style: 'ring', radius: PR, color: '#f0b6c8', veil: '#f0b6c8', glow: 0.55, halo: false, revealDistance: 700 },
       post: { exposure: 1.35, bloom: { strength: 0.3, radius: 0.5, threshold: 0.95 }, grade: { saturation: 1.05, contrast: 1.05, tint: '#fbf7ff', shadowTint: '#06040f', vignette: 0.3, grain: 0, aberration: 0 } },

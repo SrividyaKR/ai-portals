@@ -48,7 +48,9 @@ ws.close();
 for (const [t, f, u] of files) {
   const r = spawnSync('ffmpeg', ['-v', 'error', '-i', f, '-vf', 'scale=270:480,format=gray', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 24 });
   const px = r.stdout; let sum = 0, hi = 0; for (const v of px) { sum += v; if (v > 217) hi++; }
-  console.log(`t=${t}s u=${u == null ? '?' : u.toFixed(3)} mean=${(sum / px.length / 255).toFixed(3)} above0.85=${(hi / px.length).toFixed(3)}`);
+  // topDark: the share of the frame's top third that is near-black (luminance under 0.06), the "wasted sky" the phone judge counts
+  const W = 270, third = Math.floor(px.length / W / 3) * W; let dark = 0; for (let i = 0; i < third; i++) if (px[i] < 15) dark++;
+  console.log(`t=${t}s u=${u == null ? '?' : u.toFixed(3)} mean=${(sum / px.length / 255).toFixed(3)} above0.85=${(hi / px.length).toFixed(3)} topDark=${(dark / Math.max(1, third)).toFixed(2)}`);
 }
 // one sheet, all frames in a row at 270x480 each, left to right in the order of the times given (printed below)
 const inputs = files.flatMap(([, f]) => ['-i', f]);

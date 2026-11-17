@@ -77,7 +77,7 @@ void main(){
     float desc = pow(abs(sin(uTime * 2.1 + aR.x * 6.3)), 8.) * .55;
     b = kL <= 0. ? m : mix(desc, .25 + .75 * femB(aR.z + .15), smoothstep(.9, 1., kL));
   } else if (kind > 3.5) {                                            // the swarm that lifts into the column
-    float k = smoothstep(0., 1., clamp((uT - 13.8 - aR.z * 1.1) / 1.9, 0., 1.));
+    float k = smoothstep(0., 1., clamp((uT - 13.8 - aR.z * 1.1) / 1.3, 0., 1.));
     if (k > 0.) {
       float arm = step(.62, fract(aR.x * 3.7)), a = fract(aR.x * 7.13 + uTime * .028), th = a * 11. + uTime * .45 + arm * 2.6 + (aR.z - .5) * 2.6 + .45 * sin(uTime * .7 + aR.x * 31.), rad = 4. + 9. * a * (1. - .45 * a) + 2.6 * sin(aR.x * 57. + uTime * .3) * (.4 + a) + 1.4 * sin(aR.z * 40.);
       p = mix(p, uCol + vec3(cos(th) * rad, a * 110., sin(th) * rad) * vec3(1. + 1.5 * a, 1., 1. + 1.5 * a), k);
@@ -268,7 +268,7 @@ export default {
     const postT = tex(postC);
     const railC = mkCanvas(128); { const g = railC.getContext('2d'); g.fillStyle = '#8a8070'; g.fillRect(0, 0, 128, 128);
       for (let i = 0; i < 80; i++) { const y = R.range(0, 128), v = R.int(80, 150); g.strokeStyle = `rgba(${v},${v - 6},${v - 18},0.5)`; g.lineWidth = R.range(0.6, 2.2); g.beginPath(); g.moveTo(0, y); g.lineTo(128, y + R.range(-1, 1)); g.stroke(); } }
-    const railMat = litMat({ map: tex(railC), color: '#c8bca4' }, 1.1);
+    const railMat = litMat({ map: tex(railC), color: '#c8bca4' }, 1.35);
     // bark: deep furrows (tulip poplar) that the hemlocks take on darker and redder through their instance colour; moss comes from the geometry
     const barkC = document.createElement('canvas'); barkC.width = 256; barkC.height = 512; { const g = barkC.getContext('2d'); g.fillStyle = '#8c8c86'; g.fillRect(0, 0, 256, 512);
       for (let i = 0; i < 46; i++) { let x = R.range(0, 256); g.strokeStyle = `rgba(${R.int(25, 50)},${R.int(25, 45)},${R.int(22, 40)},${R.range(0.55, 0.9)})`; g.lineWidth = R.range(2, 6); g.beginPath(); g.moveTo(x, -10); for (let y = 0; y <= 520; y += 26) { x += R.range(-5, 5); g.lineTo(x, y); } g.stroke(); }
@@ -300,7 +300,7 @@ export default {
 
     // ---------------- materials ----------------
     const groundMat = litMat({ map: groundT, vertexColors: true }, 1.9, true);
-    const plankMat = litMat({ map: plankT, color: '#ffffff' }, 0.8, false, true, true), postMat = litMat({ map: postT, color: '#c8bca4' }, 1.1);
+    const plankMat = litMat({ map: plankT, color: '#ffffff' }, 0.8, false, true, true), postMat = litMat({ map: postT, color: '#c8bca4' }, 1.35);
     const barkMat = litMat({ map: barkT, vertexColors: true }, 2.6), stoneMat = litMat({ map: stoneT, color: '#ffffff' }, 1.8);
     const fernMat = litMat({ vertexColors: true, side: THREE.DoubleSide }, 2.4), lumpMat = litMat({ vertexColors: true }, 2.0), mossMat = litMat({ vertexColors: true }, 0.9);
     const leafMat = litMat({ map: leafT, alphaTest: 0.5, side: THREE.DoubleSide }, 1.3), boughMat = litMat({ map: boughT, alphaTest: 0.35, side: THREE.DoubleSide, color: '#ffffff' }, 1.45);
@@ -652,9 +652,9 @@ export default {
       pois: [
         { at: (() => { const p = along(34, -20); return [p[0], -1, p[1]]; })(), from: 0, to: uOf(2.6), fade: 0.3, weight: 0.85, steady: true },   // out and down over the creek and the valley of sparks
         { at: [CHIM[0], chimY + 1.6, CHIM[1]], from: uOf(3.3), to: uOf(7.3), fade: 0.25, weight: 0.85, steady: true },                                  // the lone chimney, fireflies in its hearth                                  // the lone chimney, fireflies in its hearth
-        { at: (tm, uu) => { const s2 = uu * PL + 26, p = along(s2, 36); return [p[0], 5, p[1]]; }, from: uOf(7.1), to: uOf(11.1), fade: 0.3, weight: 0.75 },   // the wave arriving from the ridge
+        { at: (tm, uu) => { const s2 = uu * PL + 26, p = along(s2, 36); return [p[0], 1.5, p[1]]; }, from: uOf(7.1), to: uOf(11.1), fade: 0.3, weight: 0.82 },   // the wave arriving from the ridge
         { at: (tm, uu) => { const k = ss(0.40, 0.43, uu), o = owl.g.visible ? owl.g.position : OW2; return [lerp(femSpot.x, o.x, k), lerp(femSpot.y - 1.2, o.y - 0.3, k), lerp(femSpot.z, o.z, k)]; }, from: 0.355, to: 0.5, fade: 0.25, weight: 0.85 },   // the answer in the ferns, then the owl landing
-        { at: (tm, uu) => { const c = camAtU(uu), hd = Math.hypot(COL.x - c.x, COL.z - c.z); return [COL.x, c.y + hd * Math.tan(lerp(20, 46, ss(0.5, 0.75, uu)) * PI / 180), COL.z]; }, from: 0.5, to: 0.78, fade: 0.3, weight: 0.9, steady: true },                                               // up the column
+        { at: (tm, uu) => { const c = camAtU(uu), hd = Math.hypot(COL.x - c.x, COL.z - c.z); return [COL.x, c.y + hd * Math.tan(lerp(20, 46, ss(0.58, 0.88, uu)) * PI / 180), COL.z]; }, from: 0.5, to: 0.78, fade: 0.3, weight: 0.9, steady: true },                                               // up the column
       ],
       portal: { shape: 'circle', style: 'ring', radius: 3, color: '#b8e890', veil: '#3a6a48', glow: 0.3, halo: true, revealDistance: 700, drawWithin: 140, drawIn: 14 },
       post: { exposure: 1.0, bloom: { strength: 0.3, radius: 0.5, threshold: 0.95 }, grade: { saturation: 1.08, contrast: 1.06, tint: '#f2fff4', shadowTint: '#020a14', vignette: 0.3, grain: 0, aberration: 0 } },
