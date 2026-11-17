@@ -13,7 +13,7 @@
 // runs on the clock t. Flashes are eased (sin^4), under 1.5 Hz. The creek is a real mirror: the reflected world is a
 // copy of the scene flipped about the water line, seen only through the channel, where the ground is cut away.
 import * as THREE from 'three';
-import { makePath, clamp, lerp, smoothstep as ss } from '../kit/core.js';
+import { makePath, makeRng, clamp, lerp, smoothstep as ss } from '../kit/core.js';
 import { mkCanvas, fbm, skyFor, makeBird } from '../kit/mine.js';
 import * as F from '../kit/fauna.js';
 import * as fx from '../kit/fx.js';
@@ -80,7 +80,7 @@ void main(){
     float k = smoothstep(0., 1., clamp((uT - 13.8 - aR.z * 1.1) / 1.9, 0., 1.));
     if (k > 0.) {
       float arm = step(.62, fract(aR.x * 3.7)), a = fract(aR.x * 7.13 + uTime * .028), th = a * 11. + uTime * .45 + arm * 2.6 + (aR.z - .5) * 2.6 + .45 * sin(uTime * .7 + aR.x * 31.), rad = 4. + 9. * a * (1. - .45 * a) + 2.6 * sin(aR.x * 57. + uTime * .3) * (.4 + a) + 1.4 * sin(aR.z * 40.);
-      p = mix(p, uCol + vec3(cos(th) * rad, a * 90., sin(th) * rad) * vec3(1. + 1.5 * a, 1., 1. + 1.5 * a), k);
+      p = mix(p, uCol + vec3(cos(th) * rad, a * 110., sin(th) * rad) * vec3(1. + 1.5 * a, 1., 1. + 1.5 * a), k);
       colA = mix(1., smoothstep(0., .05, a) * (1. - smoothstep(.93, 1., a)) * (1. + .6 * a), k);
       b = max(b, .5 * k);
     }
@@ -568,7 +568,7 @@ export default {
     await tick();
 
     // ---------------- 7. fireflies ----------------
-    const FN = 17600, aP = new Float32Array(FN * 3), aQ = new Float32Array(FN * 3), aR = new Float32Array(FN * 4); let fn = 0;
+    const FN = 19600, aP = new Float32Array(FN * 3), aQ = new Float32Array(FN * 3), aR = new Float32Array(FN * 4); let fn = 0;
     const fly = (x, y, z, kind, qx = x, qy = y, qz = z) => { if (fn >= FN) return; aP.set([x, y, z], fn * 3); aQ.set([qx, qy, qz], fn * 3); aR.set([R(), R(), R(), kind], fn * 4); fn++; };
     const clearOfCam = (x, y, z, d) => { const q = gq(x, z); if (q.dP > d + 3) return true; const s = clamp(q.sP, 0, LH); return q.dP > d || Math.abs(y - EYE(s)) > d; };
     // (a) the valley field: understorey, trunk height, over the creek (doubled in it), deep valley layers, the far valley beyond the ring
@@ -598,6 +598,11 @@ export default {
     for (let i = 0; i < 9; i++) { const f = fems[i * 4 % fems.length]; fly(f[0] + R.range(-2.5, 2.5), f[1] + R.range(3, 5), f[2] + R.range(-2.5, 2.5), 3, f[0] + R.range(-0.25, 0.25), f[1] + 0.02, f[2] + R.range(-0.25, 0.25)); }
     // the swarm that will rise: low over the creek and the ferns ahead
     for (let i = 0, tries = 0; i < 3600 && tries < 40000; tries++) { const s = R.range(LH - 80, LH + 30), lat = R.range(-24, 24), p = along(s, lat), gy = Math.max(WL, H(p[0], p[1])), y = gy + R.range(0.2, 2.6); if (!clearOfCam(p[0], y, p[1], 3.5)) continue; fly(p[0], y, p[1], 4); i++; }
+    { const R9 = makeRng(ctx.seed != null ? 'ff9:' + ctx.seed : 'ff9'), fly9 = (x, y, z, kind) => { if (fn >= FN) return; aP.set([x, y, z], fn * 3); aQ.set([x, y, z], fn * 3); aR.set([R9(), R9(), R9(), kind], fn * 4); fn++; };
+      // 7 s: fireflies among the trunks the camera faces then (ahead, within about +-20 degrees, 20-60 m out, 2-12 m up), half resting on the bark
+      const c7 = at(58); for (let k = 0, tries = 0; k < 800 && tries < 8000; tries++) { const D = R9.range(20, 60), ang = c7.h + R9.range(-0.35, 0.35), x = c7.x + Math.sin(ang) * D, z = c7.z - Math.cos(ang) * D, q = gq(x, z); if (q.dP < 5 || q.dC < CW(q.sC)) continue; fly9(x, H(x, z) + R9.range(2, 12), z, k % 2 ? 1 : 0); k++; }
+      // 17 s: more of the rising swarm, so the taller column stays dense to its head
+      for (let k = 0, tries = 0; k < 1100 && tries < 15000; tries++) { const s9 = R9.range(LH - 80, LH + 30), p = along(s9, R9.range(-24, 24)), y = Math.max(WL, H(p[0], p[1])) + R9.range(0.2, 2.6); if (!clearOfCam(p[0], y, p[1], 3.5)) continue; fly9(p[0], y, p[1], 4); k++; } }
     const flyGeo = own(new THREE.InstancedBufferGeometry()); flyGeo.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0], 3)); flyGeo.setIndex([0, 1, 2, 0, 2, 3]);
     flyGeo.setAttribute('aP', new THREE.InstancedBufferAttribute(aP, 3)); flyGeo.setAttribute('aQ', new THREE.InstancedBufferAttribute(aQ, 3)); flyGeo.setAttribute('aR', new THREE.InstancedBufferAttribute(aR, 4)); flyGeo.instanceCount = fn;
     // the light map: where the fireflies are, blurred over ~10 m, so their light pools on trunks, ferns, planks and water
