@@ -26,6 +26,10 @@ You build one world of a 12-world tour on Ethan Mollick's Portals engine, from t
 2. `node tools/shot.mjs <worldId> pilot/rounds/<worldId>-b<N> 0.5,1.5,3,6,9,12,15,18 <port>` where N is the round you are on and port is 9340 + N (use a different port from any other builder). It prints brightness per frame and the console count, and writes `<worldId>-sheet.jpg`.
 3. Read the sheet once. Fix anything plainly broken (black frames, errors in the console file, an object filling the lens, a blown-out frame with above0.85 over about 0.15) before you hand back. One self-check round only; the judges do the rest.
 
+## How judging works
+
+Each round is judged by a panel of three independent judges: `world-judge` (taste), `world-judge-phone` (brightness, phone-size readability, every part of the frame earning its place) and `world-judge-strip` (the flight as a story, beat by beat). The world passes only when all three pass. The lead merges their fixes into one list (the owner's own rules first, duplicates folded together, at most four) and sends it to you; fix those, in that order.
+
 ## Reply
 
 Report: the round, the final line count, what you built or changed (by layer or defect), the brightness numbers, the console count, the sheet path, and anything you could not do. Be honest: never call it done or good if you saw a problem.
