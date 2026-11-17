@@ -58,32 +58,33 @@ const camAt = (T) => [camX(T), camY(T), Z0 - V * T];
 // exit (it never falls behind the hall: dz' > -6 everywhere), so the bird holds 25-35% of the frame's width.
 // ---------------------------------------------------------------------------------------------------------------------
 const OK = [
-  [0.0, 0.0, 0.40, -4.5],                        // the hook: on the path line over its reflection, belly to belly
-  [0.7, 0.06, 0.32, -4.5],
-  [1.3, 0.0, 0.07, -4.5, [-0.1, 0, 0]],          // the kiss: beak to its reflection's beak
-  [1.9, 0.25, 0.46, -4.8],
-  [2.6, 0.1, 0.07, -5.0, [-0.35, 0, -0.3]],     // the second touch
-  [3.15, -0.25, 0.46, -5.2],
-  [3.7, -0.4, 0.07, -5.5, [-0.4, 0, 0]],         // the third touch
-  [4.3, -1.0, 0.6, -5.0],
-  [5.0, -2.0, 1.1, -4.6],                        // banking hard left to the left mirror
-  [5.6, -2.75, 1.35, -4.4],
-  [6.2, -3.2, 1.45, -4.5, [0, 0.1, 0]],          // wingtip to wingtip with its wall copy (x -4.2 vs -5.8)
-  [6.8, -2.1, 1.65, -4.3],                       // flipped away
-  [7.4, -0.9, 2.6, -4.2],
-  [8.2, -0.4, 4.4, -4.0],                        // the climb
-  [9.2, 0.0, 6.4, -4.0],
-  [10.2, 0.2, 7.75, -4.2, [0.2, 0.55, -0.2]],     // nearly touching its ceiling copy
-  [10.6, 0.3, 7.9, -4.4, [0.3, 0, -0.5]],        // the roll over the top
-  [11.3, 0.6, 6.4, -4.6],
-  [12.0, 1.0, 4.2, -4.6],                        // diving back down
-  [12.6, 1.5, 2.6, -4.5],
-  [13.2, 1.8, 2.3, -4.5, [0.3, 0, 0]],           // the brush: its right wingtip clips the brush orb
-  [13.9, 1.2, 2.5, -4.8],
-  [14.6, 0.4, 2.8, -5.0],
-  [15.3, -0.35, 3.0, -5.0],
-  [16.0, 0.0, 3.0, -5.2],
-  [16.8, 0.1, 3.05, -7.2],                       // pulling ahead
+  // round 9: the dips land 1.3 m off the walkway (open water, not under the slabs), and the bird flies closer (dz -3.4..-4.3)
+  [0.0, -0.6, 0.42, -3.6],                       // the hook: just left of the path line over its reflection, belly to belly
+  [0.7, -1.0, 0.32, -3.6],
+  [1.3, -1.3, 0.07, -3.6, [0.3, 0, 0]],          // the kiss: beak to its reflection's beak, beside the walkway
+  [1.95, 0.0, 0.46, -3.8],
+  [2.6, 1.3, 0.07, -3.9, [0.3, 0, -0.2]],        // the second touch, right of the walkway
+  [3.15, 0.1, 0.46, -4.1],
+  [3.7, -1.3, 0.07, -4.3, [-0.6, 0, 0]],         // the third touch, left again
+  [4.3, -1.8, 0.6, -4.0],
+  [5.0, -2.3, 1.1, -3.7],                        // banking hard left to the left mirror
+  [5.6, -2.75, 1.35, -3.6],
+  [6.2, -2.95, 1.45, -3.6, [0, 0.1, 0]],         // wingtip to wingtip with its wall copy (x -3.95 vs -6.05)
+  [6.8, -2.1, 1.65, -3.5],                       // flipped away
+  [7.4, -0.9, 2.6, -3.5],
+  [8.2, -0.4, 4.4, -3.4],                        // the climb
+  [9.2, 0.0, 6.2, -3.4],
+  [10.2, 0.2, 7.4, -3.4, [0.2, 0.5, -0.2]],      // nearly touching its ceiling copy
+  [10.6, 0.3, 7.55, -3.6, [0.3, 0, -0.5]],       // the roll over the top
+  [11.3, 0.6, 6.2, -3.8],
+  [12.0, 1.0, 4.2, -3.8],                        // diving back down
+  [12.6, 1.5, 2.6, -3.6],
+  [13.2, 1.8, 2.3, -3.6, [0.3, 0, 0]],           // the brush: its right wingtip clips the brush orb
+  [13.9, 1.2, 2.5, -3.8],
+  [14.6, 0.4, 2.8, -3.9],
+  [15.3, -0.35, 3.0, -4.0],
+  [16.0, 0.0, 3.0, -4.2],
+  [16.8, 0.1, 3.05, -6.8],                       // pulling ahead
   [17.6, 0.2, 3.1, -9.6],                        // through the ring (z = PZ)
   [18.4, 0.2, 3.1, -12.0],
   [19.7, 0.2, 3.1, -14.0],
@@ -116,7 +117,7 @@ function birdAt(T, out) {
   out.x += _cp.x; out.z += _cp.z; return out;
 }
 // the brush orb (placed in build, 1.05 m right of the bird at the moment of the brush)
-const BRUSH = { T0: 13.2, r: 0.4, x: 0, y0: 0, z: 0 };
+const BRUSH = { T0: 13.2, r: 0.4, x: 0, y0: 0, z: 0 };   // 1.2 m right of the bird at T0
 // how much the wings beat (0 glide .. 1 full burst), by staged time: swallows beat in bursts and glide between
 function flapAmount(T) {
   const bursts = [[0.0, 0.5], [1.35, 1.9], [2.65, 3.1], [3.75, 4.4], [6.2, 6.9], [7.3, 9.6], [12.2, 12.8], [13.3, 14.1], [15.6, 17.6]];
@@ -141,7 +142,7 @@ export default {
     ROUTE = path;   // the bird is placed from the camera's own route
     {
       const b = birdAt(BRUSH.T0, new THREE.Vector3());
-      BRUSH.x = b.x + 1.05; BRUSH.y0 = b.y + 0.15; BRUSH.z = b.z - 0.05;   // 1.05 m right of the bird: its wingtip (0.57 m) clips the orb (r 0.4)
+      BRUSH.x = b.x + 1.2; BRUSH.y0 = b.y + 0.15; BRUSH.z = b.z - 0.05;   // 1.2 m right of the bird: its wingtip (0.86 m) clips the orb (r 0.4)
     }
     scene.background = new THREE.Color(PAL.bg);
     const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color();
@@ -212,7 +213,7 @@ export default {
     const handG = own(shapeGeo([[0, 0.028], [0.08, 0.02], [0.17, -0.055], [0.238, -0.15], [0.15, -0.088], [0.06, -0.062], [0, -0.046]], (x) => (x > 0.15 ? [0.07, 0.1, 0.4] : [0.1, 0.18, 0.66])));
     const armGL = own(armG.clone().scale(-1, 1, 1)), handGL = own(handG.clone().scale(-1, 1, 1));
     const birdMat = own(new THREE.MeshMatcapMaterial({ matcap: birdMC, vertexColors: true, side: THREE.DoubleSide }));
-    const BIRD_S = 1.85;   // about 1.3 m across the wings: from behind its swept wings read narrower than the span
+    const BIRD_S = 2.4;   // about 1.7 m across the wings (round 6's size): from behind, swept wings read at about half their span
     const bird = new THREE.Group(); bird.name = 'swallow';
     const body = new THREE.Mesh(bodyG, birdMat), beak = new THREE.Mesh(beakG, birdMat), tail = new THREE.Mesh(tailG, birdMat);
     body.position.set(0, 0, 0); tail.position.set(0, 0.004, 0);
@@ -246,7 +247,7 @@ export default {
     }
     const od = [];
     const clearOf = (x, y, z, r) => {
-      if (Math.abs(x) > W - r - 0.14 || y - r < 0.7 || y + r > H - 1.6) return false;
+      if (Math.abs(x) > W - r - 0.14 || y - r < 0.7 || y + r > H - 0.5) return false;   // round 9: up to 0.5 m under the ceiling, so the ceiling beat's top holds orbs
       // the camera's tube: an orb above the eye is cleared by its height as well; one at eye height or under it by its
       // thread, which runs up past the eye, so only the horizontal distance counts
       const need = y < 3 ? 3.5 : 2.6;
@@ -295,6 +296,14 @@ export default {
           if (clearOf(cx, cy, cz, cr)) { addOrb(cx, cy, cz, cr); made++; }
         }
       }
+      if ((tries & 511) === 0) await tick();
+    }
+    // round 9: a second, sparser layer hung high (8.2-9.4 m, up to 0.5 m under the ceiling), placed after the main layer so
+    // that layer is unchanged; it fills the top of the ceiling beat with orbs and their near ceiling copies (the climb gap
+    // and the sight lines in clearOf keep the bird's column clear)
+    for (let tries = 0, made = 0; made < 120 && tries < 3000; tries++) {
+      const x = R.range(-W + 0.3, W - 0.3), z = R.range(Z_NEAR, Z_FAR), r = 0.07 + 0.22 * Math.pow(R(), 2), y = R.range(8.2, H - 0.5 - r);
+      if (clearOf(x, y, z, r)) { addOrb(x, y, z, r); made++; }
       if ((tries & 511) === 0) await tick();
     }
     const NH = od.length;      // hanging orbs (each with a thread)
@@ -513,7 +522,7 @@ export default {
         vec3 pool = vec3(0.0);
         for (int i = 0; i < ${24}; i++) { vec4 q = uPool[i]; vec2 dd = p - q.xy; float R = 0.2 + 0.08 * q.z; pool += uPoolC[i] * q.w * exp(-dot(dd, dd) / (R * R)) * (0.8 + 0.4 * amb); }
         float pl = dot(pool, vec3(0.3, 0.5, 0.2));
-        col += (uCrest * 0.05 + pool * 3.0) * sl * 0.15 / max(a, 0.1);   // a crest catches light where it crosses the pooled light
+        col += (uCrest * 0.5 + pool * 3.0) * sl * 0.15 / max(a, 0.1);   // round 9: the crests carry their own light, so a ring reads close under the camera too   // a crest catches light where it crosses the pooled light
         gl_FragColor = vec4((col + pool / max(a + 0.25 * pl, 0.05)) * dim, clamp(a + 0.25 * pl, 0.0, 0.95));
       }`;
     const waterPlane = (y, J, flip) => {
@@ -654,7 +663,7 @@ export default {
         for (let q = 0; q < POOLS; q++) {
           if (q >= cand.length) { poolP[q].w = 0; continue; }
           const i = cand[q][1], d = od[i]; orbs.getMatrixAt(i, _m); _p.setFromMatrixPosition(_m);
-          poolP[q].set(_p.x, _p.z, _p.y, Math.min(0.24, cand[q][0] * 0.7)); orbs.getColorAt(i, poolC[q]);
+          poolP[q].set(_p.x, _p.z, _p.y, Math.min(0.24, cand[q][0] * 0.7) * (1 + 0.6 * (1 - smoothstep(4.0, 6.0, T))));   // round 9: brighter pools under the kiss and the ring trail orbs.getColorAt(i, poolC[q]);
         }
       }
       const wC = _c.copy(C.teal).lerp(C.pink, smoothstep(7, 12, T));
@@ -676,7 +685,7 @@ export default {
     // the wall: the mirror point between the bird and its wall copy (yaw ~40 deg left)
     const wallLook = (tm, uu) => { const v = bAt(uu); return [-W, v.y - 0.7, v.z]; };
     // the ceiling: above the bird toward its ceiling copy, so the gaze pitches ~45-52 deg and holds both
-    const ceilLook = (tm, uu) => { const v = bAt(uu); return [v.x, v.y + 0.15 * (H - v.y) + 0.3, v.z]; };
+    const ceilLook = (tm, uu) => { const v = bAt(uu); return [v.x, v.y - 0.6, v.z]; };   // pitch ~47 deg at the top: the bird a little over the middle, its copy in the upper third
     // the brush: between the bird and the brush orb while the orb is ahead, then the bird alone
     const brushLook = (tm, uu) => { const T = clamp(uu, 0, 1) * DUR, v = bAt(uu), k = 0.5 * (1 - smoothstep(13.4, 14.2, T)); perchPos(T, orbPos); return [v.x + (orbPos.x - v.x) * k, v.y + (orbPos.y - v.y) * k, v.z + (orbPos.z - v.z) * k]; };
     const birdLook = (tm, uu) => { const v = bAt(uu); return [v.x, v.y, v.z]; };
