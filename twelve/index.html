@@ -42,9 +42,14 @@ const box = document.getElementById('box'), go = document.getElementById('go');
 const tour = 'dragon-blood-forest,salt-hexagons,dye-vats-of-fez,ice-bubble-lake,fish-rain-night,bone-breaker-ridge,monarch-river,infinity-mirror-room,snow-monsters-watch,long-table-village,living-root-bridge,firefly-synchrony';
 // the tour's own soundtrack (the one on the recorded film): unlocked by the Begin tap, started from the top when the first world appears
 const music = new Audio('music.m4a?v=2'); music.preload = 'auto'; music.loop = true;   // the full track (6 min) outlasts the tour; looping is only a safety net on a slow device
-const startMusic = () => { music.currentTime = 0; music.play().catch(() => {}); };
+// Safari, iPhones and strict autoplay settings allow sound only when it starts inside a tap, so the music starts on Begin
+// and keeps playing through the load (never paused and restarted from a timer, which those browsers block); when the
+// first world appears it jumps back to the top, and any later tap retries it should a browser still have held it back
+const startMusic = () => { try { music.currentTime = 0; } catch (x) {} if (music.paused && !music.muted) music.play().catch(() => {}); };
+const retryMusic = () => { if (music.paused && !music.muted) music.play().catch(() => {}); };
+document.addEventListener('pointerdown', retryMusic, true);
 go.onclick = () => {
-  music.play().then(() => { music.pause(); music.currentTime = 0; }).catch(() => {});
+  music.play().catch(() => {});
   const f = document.createElement('iframe'); f.allow = 'autoplay; fullscreen'; f.src = '../?tour=' + tour + '&end=1&seed=7'; box.appendChild(f);
   // only Sri's soundtrack plays here: the engine's sound button (and its S key) mute and unmute that soundtrack instead,
   // and the engine's own sound is switched off for good should it ever have started
@@ -58,6 +63,7 @@ go.onclick = () => {
         wired = b;
         b.addEventListener('click', (e) => { e.stopImmediatePropagation(); e.preventDefault(); muteToggle(); }, true);
         w.addEventListener('keydown', (e) => { if (e.key === 's' || e.key === 'S') { e.stopImmediatePropagation(); muteToggle(); } }, true);
+        w.addEventListener('pointerdown', retryMusic, true);   // taps on the world itself land in the frame, not this page
       }
       const a = w.__audio;
       if (a && !a.silenced) { if (a.toggle()) a.toggle(); a.toggle = () => false; a.silenced = true; }
