@@ -1,0 +1,49 @@
+# Brief: firefly-synchrony ("The Night the Fireflies Agree")
+
+## 1. The world in one line
+A June night at Elkmont in the Great Smoky Mountains: you walk a wet boardwalk along Jakes Creek, past the stone chimneys of the abandoned Elkmont cabins, while thousands of fireflies, each flashing alone, fall into step until the whole valley breathes light at once and then rises in a slow column toward a small ring.
+
+- **Twist**: the real synchrony made total. Every firefly in the valley, the ones on the boardwalk rails too, joins one wave, and at the end the swarm lifts off the forest floor and spirals up.
+- **Keep**: the name and caption, random-to-locked flashing (`lock`, `WAVE`, the phase lerp at lines 98-107), the mirrored reflection in the water (`base`/`mirror` groups), fireflies sitting on the rails (`rfz`), the owl, the final spiral (`vort`), the night palette (#050a1c to #1a3040).
+- **Fix** (from the sheet): at 0.5 s the frame is black (no hook). At 6 s a trunk fills the frame because trunks are only 5.2 m off the line. At 3 to 6 s the near fireflies are big blurred green blobs (halo points of size 1.5). From 15 s the portal is 25 m ahead with bloom and fills the screen. The boardwalk is flat untextured boxes and covers only the stream; everywhere else the walk is on a flat leaf texture.
+
+## 2. Focal subject
+Candidates: (a) synchronous firefly *Photinus carolinus*, the swarm itself; (b) the blue ghost firefly *Phausis reticulata* (steady blue glow, drifts low over the ground; also native here); (c) a barred owl; (d) a white-tailed doe at the creek; (e) a black bear.
+**Pick: (a), the synchronous fireflies, given their real behaviour.** They are the reason people come to this valley, and their real pattern gives the beats for free: males rise and flash in **bursts of 5 to 8 flashes, then the whole forest goes dark for 6 to 9 s at once**. In the dark gaps the **females in the ferns answer with single flashes, and males drop down and land beside them**. The real light show is flight, landing and call-and-answer, not points sliding on sine curves.
+Supporting life, not the focal subject: blue ghosts in the lower frame (they give the owner's blue against the green-gold), and the owl from the current version, which now **glides through a dark gap and lands on a snag** instead of sliding across on a lerp.
+
+## 3. Beat list (18 s; `T = u*18`; flash pulses at no more than 1.5 per second, eased)
+- **0-2 s HOOK, the swoop.** Start 9 m up under the hemlock crowns (`nearThrough` on), already moving, and descend in an eased curve to boardwalk height (1.7 m) by 2.2 s. Below, a valley of random sparks stretches 150 m deep in layers, the creek is a dark ribbon that doubles them, and the boardwalk rails rise into the lower frame. The frame is never black: sparks are visible from the very first frame.
+- **2-6 s The random field.** Sparks are out of step. Blue ghosts drift knee-high along the boardwalk edge. poi left (3.5-5.5 s) at a **lone fieldstone chimney** of an Elkmont cabin, 22 m off, with fireflies blinking in its cold hearth.
+- **6-11 s The agreement.** At about 6.3 s the first shared blackout: everything goes dark together for about 1 s (keep a 0.06 floor; never pitch black). Then the first in-step burst: 6 slow pulses roll as a wave down the slope from far right toward the camera, lighting trunks, ferns and planks as it passes. poi right and up (6.5-10 s) at the wave arriving from the ridge.
+- **11-14 s The answer.** The second dark gap. In the ferns at the boardwalk edge, 4 to 10 m off, females answer with single, low, warmer flashes, and 6 to 10 males spiral down and land beside them. poi down-left at that spot (11-13 s). Through the gap, the **barred owl** glides silently across the creek from right to left, flaps twice, and lands on a dead snag 25 m away, folding its wings (12-15 s).
+- **14-18 s The rising.** The last burst: the whole valley is in step, and the swarm over the creek lifts into a slow spiral column (the current `vort`, but rising from the ground and the ferns, not from fixed points). The boardwalk turns into the creek opening, where the small ring sits on the horizon in the gap between the trees. poi up the column (14-16.5 s), then back level. The ring is entered at 18 s. Interest ends there; there is no glide after it.
+
+## 4. Detail layers (target about 1,100 to 1,300 lines)
+1. **Boardwalk, the lower frame, the whole length** (about 150 lines). It runs along the entire path, not just over the stream, so the viewer always stands on it. Planks of irregular width (0.22 to 0.34 m) with dark gaps between them showing moss and water below. Use a canvas texture: grain streaks, knots, nail pairs, a wet sheen near the centre, and moss and lichen creeping from the edges. Each plank gets its own tint and a little warp (rot ±0.01). Leaf litter and fallen hemlock needles scattered on the planks (instanced quads, about 300). Posts with lichen; the rails stay, and the fireflies keep sitting on them. Where it crosses the creek, show stringers and the visible under-structure. Weathered wood colours: stone-face.js 967-985. Wood tone pale grey-ochre (#9a9080), lit by the wave.
+2. **Understorey, 3 to 14 m, knee-high only** (about 200 lines). Christmas and cinnamon ferns as real fronds (several leaflets per frond, 3 frond shapes, 900 to 1,400 of them), moss hummocks, mossy fallen logs with shelf fungi, and faint foxfire on 3 or 4 rotting logs (real; replace the cyan mushroom caps, which read as fantasy). Copy redwood-dawn.js 524-650 (sword ferns, sorrel carpet, mossy boulders and logs).
+3. **Jakes Creek** (about 120 lines). Keep the mirror reflection. Add 30 to 40 rounded mossy boulders, two small riffles with soft pale foam, and slow surface ripples that break the reflected sparks into short streaks. Reference: redwood-dawn.js 259-340.
+4. **Trunks, 15 to 70 m**, at least 15 m off the corridor (about 180 lines). Tulip poplars (straight, pale grey, furrowed) and eastern hemlocks (dark, with drooping lower boughs), 120 to 160 of them, radius 0.4 to 1.3, lean ±4°, root flare, moss on one side. Rhododendron thickets along the banks, also at least 15 m off. Use `flora.makeForest` with `corridor: 15` (macaw-wall.js 1480-1495) and the bark atlas from redwood-dawn.js 425-480.
+5. **Elkmont ruins** (about 80 lines). One standing fieldstone chimney (poi, 22 m left), a second chimney far off, and one collapsed cabin porch with a sagging roof at 50 m right. Use irregular stacked-stone geometry, never a clean box.
+6. **Far layers, 70 to 400 m** (about 120 lines). Trunk silhouettes fading into fog. In the creek gap, two or three ridge silhouettes in blue mist (the Smokies' "smoke") under a starry strip of sky. Use `fx.makeGroundFog` plus `fx.makeMist` banks between the ridges and pooled over the creek: copy glowwood.js 605-630.
+7. **Fireflies** (about 250 lines):
+   (a) The valley field, 3,000 to 3,600 instanced quads, using deer-cave-exodus.js 675-695 (`FLY_VERT`/`FLY_FRAG`: the size clamp "never under two pixels, never a big disc", near fade 4-12 m) and 2564-2590 (placement in crowns and by the path). Drive the burst and gap timing from T, with the phase lerp from random to wave.
+   (b) Near fireflies: `F.makeFireflies` with `nearFade: [3, 9]`, size 0.2 to 0.3 (house-of-four-seasons.js 852-861). **Remove the size-1.5 halo points.**
+   (c) Blue ghosts: `makeFireflies`, colour `#7ab8ff`, a high floor (they glow steadily) with no sync, altitude 0.2 to 0.8, about 120 of them, drifting slowly.
+   (d) Females: about 40 fixed points in the ferns with warmer single flashes in the gaps, plus the males that land beside them.
+8. **Owl**: keep `makeBird`, but give it a path with flaps, a glide, a flare and a landing, then a perched pose with a slow head turn.
+
+## 5. Camera path and pois
+S-curve by distance at about 5.5 m/s (about 100 m), always moving forward. Height 9 m falls to 1.7 m by 2.2 s (eased), then a gentle step bob (≤0.04). The path has two easy bends (left past the chimney, right toward the creek gap) and crosses the creek once on the bridge section. Corridor: no trunk, shrub taller than 1.2 m, rock or chimney within 15 m. Only planks, rails, ferns and ground stay close. The pois are the chimney (L), the arriving wave (R, up), the females (down L), the column (up), each with fade ≥0.3 and weight ≤0.85.
+
+## 6. Light and palette
+Bloom strength 0.3, threshold 0.95, radius 0.5. Firefly green-gold #d2ff76 / #d8ff7a, female answer #ffd070, blue ghosts #7ab8ff, mist blue #2a4a6a to #4a6a8a, wood ochre, fern green #2a6a4a. Whole-scene light rises at most +0.25 on a pulse (trunk/ground `lit` capped near 0.35); never a bright field over the screen. Pulses ≤1.5 Hz, each eased (sin^4), never a hard on/off. No moon disc in view. Shader colours through pow(col, 2.2).
+
+## 7. Portal
+The creek gap at the end of the boardwalk frames it: a small ring sitting on the horizon between the last trunks, the firefly column spiralling around it.
+`{ shape:'circle', style:'ring', radius:9, color:'#d8ff9a', veil:'#d8ff9a', glow:0.75, halo:true, revealDistance:700 }`, centre at y = 9. Place it far down the creek line (≥120 m past where the camera stands at 14 s) so it reads as a small ring until about 16.5 s. It must never cover more than about a fifth of the frame before 17 s.
+
+## 8. Risks (what a judge will fail first)
+1. **The portal blooms over the screen early** (the current fault). Check frames at 14, 15, 16 and 17 s for its size and halo.
+2. **Glow and flash safety.** Big blurred near fireflies, whole-frame brightness pumping on each burst, or flashes above 3/s. Check the sheet at 3, 6 and 9 s for discs; keep the size clamp and the near fade.
+3. **The corridor.** Trunks or chimney too close (the 6 s trunk). The 9 m start passing through crowns: clear the first 30 m of crowns above 6 m. The frame too dark to read the place at 0.5 s.

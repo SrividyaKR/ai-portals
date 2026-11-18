@@ -34,20 +34,57 @@ h1{font-weight:normal;font-style:italic;font-size:clamp(26px,7vw,40px);margin:0 
     <h1>Twelve Worlds</h1>
     <p id="sub">Twelve imagined places, drawn live by your own device. About four minutes. Best on a phone held upright.</p>
     <button id="go">&#9654; Begin</button>
-    <div id="credit">Worlds by Sri, made with Claude Code.<br>Built on <a href="https://github.com/emollick/ai-portals">Portals by Ethan Mollick</a>, CC BY-NC-SA 4.0.<br><a href="../">Fly all the worlds</a> · <a href="https://github.com/SrividyaKR/ai-portals">Source</a></div>
+    <div id="credit">Worlds by Sri, made with Claude Code.<br>Built on <a href="https://github.com/emollick/ai-portals">Portals by Ethan Mollick</a>, CC BY-NC-SA 4.0.<br><a href="../?all">Fly all the worlds</a> · <a href="https://github.com/SrividyaKR/ai-portals">Source</a></div>
   </div>
 </div>
 <script>
 const box = document.getElementById('box'), go = document.getElementById('go');
 const tour = 'dragon-blood-forest,salt-hexagons,dye-vats-of-fez,ice-bubble-lake,fish-rain-night,bone-breaker-ridge,monarch-river,infinity-mirror-room,snow-monsters-watch,long-table-village,living-root-bridge,firefly-synchrony';
+// the tour's own soundtrack (the one on the recorded film): unlocked by the Begin tap, started from the top when the first world appears
+const music = new Audio('music.m4a?v=2'); music.preload = 'auto'; music.loop = true;   // the full track (6 min) outlasts the tour; looping is only a safety net on a slow device
+// The music is heard from the moment the flight goes through the first portal into the first world. Browsers allow sound
+// only from a tap, so the Begin tap starts it playing silently (muted) and the portal unmutes it from the top; nothing is
+// paused and restarted from a timer, which some browsers block. userMuted is the viewer's own choice (the sound button).
+let userMuted = false, live = false;
+const startMusic = () => { if (live) return; live = true; try { music.currentTime = 0; } catch (x) {} music.muted = userMuted; if (music.paused) music.play().catch(() => {}); };
+const retryMusic = () => { if (live && music.paused && !userMuted) music.play().catch(() => {}); };
+document.addEventListener('pointerdown', retryMusic, true);
 go.onclick = () => {
+  music.muted = true; music.play().catch(() => {});
   const f = document.createElement('iframe'); f.allow = 'autoplay; fullscreen'; f.src = '../?tour=' + tour + '&end=1&seed=7'; box.appendChild(f);
+  // only Sri's soundtrack plays here: the engine's sound button (and its S key) mute and unmute that soundtrack instead,
+  // and the engine's own sound is switched off for good should it ever have started
+  let wired = null;
+  const muteToggle = () => { userMuted = !userMuted; if (live) { music.muted = userMuted; if (!userMuted && music.paused) music.play().catch(() => {}); } showSound(); };
+  const showSound = () => { try { const b = f.contentWindow.document.getElementById('b-sound'); if (b) { b.classList.toggle('on', !userMuted); b.setAttribute('aria-label', userMuted ? 'Sound on' : 'Sound off'); } } catch (x) {} };
+  setInterval(() => {
+    try {
+      const w = f.contentWindow, b = w.document.getElementById('b-sound');
+      if (b && wired !== b) {
+        wired = b;
+        b.addEventListener('click', (e) => { e.stopImmediatePropagation(); e.preventDefault(); muteToggle(); }, true);
+        w.addEventListener('keydown', (e) => { if (e.key === 's' || e.key === 'S') { e.stopImmediatePropagation(); muteToggle(); } }, true);
+        w.addEventListener('pointerdown', retryMusic, true);   // taps on the world itself land in the frame, not this page
+        // pause and play: the music pauses and resumes with the flight, inside the same tap or key press (which every
+        // browser allows), read before the engine flips its own state
+        const applyPause = (p) => { if (!live) return; if (p) music.pause(); else if (!userMuted) music.play().catch(() => {}); };
+        const bp = w.document.getElementById('b-pause');
+        if (bp) bp.addEventListener('click', () => applyPause(!w.__engine.settings.paused), true);
+        w.addEventListener('keydown', (e) => { const t = e.target, inPanel = t && t.tagName === 'BUTTON' && t.closest && t.closest('#panel, #share'); if (e.code === 'Space' && !inPanel) applyPause(!w.__engine.settings.paused); }, true);
+      }
+      if (live && w.__engine && w.__engine.settings.paused && !music.paused) music.pause();   // paused some other way: the music waits too
+      const a = w.__audio;
+      if (a && !a.silenced) { if (a.toggle()) a.toggle(); a.toggle = () => false; a.silenced = true; }
+      showSound();
+    } catch (x) { /* not ready yet */ }
+  }, 300);
   document.getElementById('start').remove();
   const L = document.createElement('div'); L.id = 'load'; L.innerHTML = '<div>Building the first world. This takes about half a minute.</div><div id="bar"><i></i></div><div id="ls">0 s</div>'; box.appendChild(L);
   const t0 = Date.now(), iv = setInterval(() => {
     const s = Math.round((Date.now() - t0) / 1000); document.getElementById('ls').textContent = s + ' s'; L.querySelector('i').style.width = Math.min(95, s * 3) + '%';
-    try { const e = f.contentWindow.__engine; if (e && e.cur && s > 3) { L.remove(); clearInterval(iv); } } catch (x) { /* not ready yet */ }
-    if (s > 120) { L.remove(); clearInterval(iv); }
+    // through the first portal: the current world is a real world, not the dark antechamber the flight starts in
+    try { const e = f.contentWindow.__engine, c = e && e.cur; if (c && c.def && !c.def.antechamber && s > 3) { L.remove(); clearInterval(iv); startMusic(); } } catch (x) { /* not ready yet */ }
+    if (s > 120) { L.remove(); clearInterval(iv); startMusic(); }
   }, 500);
 };
 </script>
