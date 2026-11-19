@@ -115,7 +115,7 @@ export default {
       }
       return base;
     };
-    const toGeo = (b) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(b.p, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(b.c, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(b.u, 2)); g.setIndex(b.i); return g; };
+    const toGeo = (b) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(b.p, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(b.c, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(b.u, 2)); g.setAttribute('aTip', new THREE.Float32BufferAttribute(b.u.filter((_, i) => !(i & 1)), 1)); g.setIndex(b.i); return g; };
 
     // A real dragon blood tree: a thick bottle-shaped trunk that forks again and again into a dense upturned umbrella,
     // with a rosette of spiky needle leaves at the end of every twig.
@@ -127,7 +127,7 @@ export default {
       ax.normalize().multiplyScalar(w);
       const i0 = buf.p.length / 3;
       buf.p.push(base.x - ax.x, base.y - ax.y, base.z - ax.z, base.x + ax.x, base.y + ax.y, base.z + ax.z, base.x + dir.x * L, base.y + dir.y * L, base.z + dir.z * L);
-      for (let j = 0; j < 3; j++) { const m = j === 2 ? tipMix : 0; buf.c.push(col.r * (1 - m) + tipCol.r * m, col.g * (1 - m) + tipCol.g * m, col.b * (1 - m) + tipCol.b * m); buf.u.push(0, 0); }
+      for (let j = 0; j < 3; j++) { const m = j === 2 ? tipMix : 0; buf.c.push(col.r * (1 - m) + tipCol.r * m, col.g * (1 - m) + tipCol.g * m, col.b * (1 - m) + tipCol.b * m); buf.u.push(j === 2 ? 1 : 0, 0); }
       buf.i.push(i0, i0 + 1, i0 + 2);
     };
     let curTips = null;
@@ -251,10 +251,30 @@ export default {
     for (const t of trees) { const key = Math.floor(t.x / CELL) + '|' + Math.floor(t.z / CELL) + '|' + t.v; let g = groups.get(key); if (!g) groups.set(key, g = []); g.push(t); }
     const woodMat = own(new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide }));
     const leafMat = own(new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+    // the crowns' own material: the mild leaf glow, plus a peach rim on every blade tip the wave has reached (path u looked up by z)
+    const crownMat = own(new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+    {
+      const zu = []; for (let k = 0; k < 33; k++) { const z = 360 - k * 22.5; zu.push(z < path.end.z ? 1 : path.nearestXZ(5, z).u); }
+      crownMat.onBeforeCompile = (sh) => {
+        sh.uniforms.uFront = wake.uFront; sh.uniforms.uTime = wake.uTime; sh.uniforms.uZU = { value: zu }; sh.uniforms.uPeachRim = { value: new THREE.Color('#ffbd9e') };
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aTip; uniform float uFront, uTime; uniform float uZU[33]; varying float vTip;')
+          .replace('#include <begin_vertex>', `#include <begin_vertex>
+            { mat4 im = mat4(1.);
+              #ifdef USE_INSTANCING
+                im = instanceMatrix;
+              #endif
+              vec4 wp = modelMatrix * im * vec4(position, 1.); float f = clamp((360. - wp.z) / 22.5, 0., 31.999); int i = int(f);
+              float uu = mix(uZU[i], uZU[i + 1], fract(f)), d = uFront - uu;
+              vTip = aTip * step(0.3, uu) * (smoothstep(0., 0.03, d) * (0.75 + 0.25 * sin(uTime * 1.3 + wp.x * 0.7)) + 0.8 * exp(-d * d / 0.0012)); }`);
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uPeachRim; varying float vTip;')
+          .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb += uPeachRim * 0.25 * vTip;');
+      };
+      crownMat.customProgramCacheKey = () => 'dbf-crown-rim';
+    }
     let gi = 0;
     for (const [key, list] of groups) {
       const v = variants[+key.split('|')[2]];
-      const wm = new THREE.InstancedMesh(v.wood, woodMat, list.length), lm = new THREE.InstancedMesh(v.leaf, leafMat, list.length);
+      const wm = new THREE.InstancedMesh(v.wood, woodMat, list.length), lm = new THREE.InstancedMesh(v.leaf, crownMat, list.length);
       let sx = 0, sz = 0;
       list.forEach((t, i) => {
         _q.setFromAxisAngle(_y, t.rot); _p.set(t.x, gh(t.x, t.z), t.z); _s.set(t.sh, t.sv, t.sh);
@@ -304,10 +324,10 @@ export default {
             float tw = 0.7 + 0.3 * sin(uTime * 1.3 + aSeed * 6.2831);            // slow twinkle, about a fifth of a cycle a second
             float fogF = exp(-pow(-mv.z * 0.0029, 2.));
             vA = lit * (0.55 * tw + 0.45 * crest) * fogF * smoothstep(1., 6., -mv.z);   // gone within 6 m of the lens: never a broad halo
-            gl_PointSize = clamp(3.2 * projectionMatrix[1][1] * uViewH * 0.5 * (1. + 0.7 * crest) / max(-mv.z, 1.), 2., 16.);
+            gl_PointSize = clamp(3.2 * projectionMatrix[1][1] * uViewH * 0.5 * (1. + 0.7 * crest) / max(-mv.z, 1.), 2., 28.);
             gl_Position = projectionMatrix * mv;
           }`,
-        fragmentShader: `varying float vA; void main(){ float d = length(gl_PointCoord - .5); float a = smoothstep(.5, 0., d); gl_FragColor = vec4(vec3(1., .74, .62), a * a * a * vA * 0.9); }`,
+        fragmentShader: `varying float vA; void main(){ float d = length(gl_PointCoord - .5); float a = smoothstep(.5, 0., d); gl_FragColor = vec4(vec3(1., .74, .62), a * a * vA * 0.9); }`,
       });
       const pw = new THREE.Points(own(g), own(m)); pw.frustumCulled = false; pw.renderOrder = 5; scene.add(pw);
     };
@@ -359,11 +379,9 @@ export default {
       for (let i = 0; i < 110; i++) {   // moss cushions: clusters of small domes, lit from the upper left
         const cx = r.range(0, S), cy = r.range(0, S), base = moss[r.int(0, 2)], n = r.int(6, 18), sp = r.range(10, 30);
         for (let k = 0; k < n; k++) {
-          const x = cx + r.range(-sp, sp), y = cy + r.range(-sp, sp) * 0.8, rr = r.range(3, 9);
-          wrapBlob(g, S, x + 1.2, y + 1.2, rr * 1.05, '#22302a66');
-          wrapBlob(g, S, x, y, rr, base);
-          const cc = new THREE.Color(base).lerp(new THREE.Color('#8aa07e'), 0.22);
-          wrapBlob(g, S, x - rr * 0.3, y - rr * 0.3, rr * 0.45, '#' + cc.getHexString() + '70');
+          const x = cx + r.range(-sp, sp), y = cy + r.range(-sp, sp) * 0.8, rr = r.range(2, 7);
+          for (let q = 0; q < 4; q++) wrapBlob(g, S, x + r.range(-rr, rr), y + r.range(-rr, rr) * 0.7, rr * r.range(0.4, 0.9), base + '66');   // irregular, low-contrast clumps
+          if (r() < 0.4) wrapBlob(g, S, x, y, rr * 0.35, '#7a8a6c44');
         }
       }
       g.lineCap = 'round';
@@ -386,7 +404,7 @@ export default {
       for (let k = 0; k <= SEGS; k++) {
         const u = lerp(U0, 1, k / SEGS); path.pointAt(u, pp); path.tangentAt(u, tg);
         if (prev) along += Math.hypot(pp.x - prev.x, pp.z - prev.z); prev = pp.clone();
-        const nx = -tg.z, nz = tg.x, nl = Math.hypot(nx, nz) || 1, w = 3.9 + 1.0 * N.n2(k * 0.07, 3) + 0.4 * N.n2(k * 0.31, 9);
+        const nx = -tg.z, nz = tg.x, nl = Math.hypot(nx, nz) || 1, w = 0.7 * (3.9 + 1.0 * N.n2(k * 0.07, 3) + 0.4 * N.n2(k * 0.31, 9));
         const sw = 0.8 * N.n2(k * 0.05, 17);   // the trail wanders a little off the line
         for (let j = 0; j < W; j++) {
           const s = (j - (W - 1) / 2) / ((W - 1) / 2), x = pp.x + nx / nl * (s * w + sw), z = pp.z + nz / nl * (s * w + sw);
@@ -452,19 +470,19 @@ export default {
       const r = RS.fork('trailBits'), pebG = own(bakeFaces(new THREE.IcosahedronGeometry(1, 0), 0, r, 0.55));
       const peb = [], mossL = [], ndl = [];
       for (let i = 0; i < 600; i++) {
-        const u = r.range(U0 + 0.01, 0.995), off = (r() < 0.5 ? -1 : 1) * Math.pow(r(), 0.8) * 6.5, q = beside(u, off), s = r.range(0.05, 0.25) * (r() < 0.1 ? 1.5 : 1);
+        const u = r.range(U0 + 0.01, 0.995), off = (r() < 0.5 ? -1 : 1) * Math.pow(r(), 0.8) * 5, q = beside(u, off), s = r.range(0.05, 0.25) * (r() < 0.1 ? 1.5 : 1);
         if (POOL.d(q.x, q.z) < 1.05) continue;
         peb.push({ x: q.x, z: q.z, y: gh(q.x, q.z) + s * 0.25, sx: s * r.range(1, 1.5), sy: s * r.range(0.45, 0.8), sz: s, rot: r.range(0, 6.28), tx: r.range(-0.3, 0.3), col: tint(['#b8a8b0', '#a89aa0', '#c4b4b8', '#9a8c94', '#cbbcbc'], r, 0.75, 1.0) });
       }
       // pale gravel round the pool
-      for (let i = 0; i < 180; i++) {
-        const th = r.range(0, 6.28), q = POOL.edge(th, r.range(1.0, 1.28), {}), s = r.range(0.06, 0.2);
+      for (let i = 0; i < 320; i++) {
+        const th = i < 160 ? r.range(-Math.PI, 0) : r.range(0, 6.28), q = POOL.edge(th, r.range(0.98, 1.3), {}), s = r.range(0.06, 0.2);
         peb.push({ x: q.x, z: q.z, y: gh(q.x, q.z) + s * 0.3, sx: s * 1.3, sy: s * 0.6, sz: s, rot: r.range(0, 6.28), col: tint(['#cbbcbc', '#d4c6c4', '#b8a8b0'], r, 0.8, 1.0) });
       }
       instance(pebG, plainMat, peb);
       const mossG = own(bakeFaces(new THREE.SphereGeometry(1, 8, 5, 0, 6.2832, 0, Math.PI / 2), 0.18, r, 0.6));
       for (let i = 0; i < 300; i++) {
-        const u = r.range(U0 + 0.01, 0.99), off = (r() < 0.5 ? -1 : 1) * r.range(1.6, 7.5), q = beside(u, off), s = r.range(0.15, 0.55);
+        const u = r.range(U0 + 0.01, 0.99), off = (r() < 0.5 ? -1 : 1) * r.range(1.2, 6), q = beside(u, off), s = r.range(0.15, 0.55);
         if (POOL.d(q.x, q.z) < 1.05) continue;
         mossL.push({ x: q.x, z: q.z, y: gh(q.x, q.z) - 0.02, sx: s * r.range(1, 1.6), sy: s * r.range(0.3, 0.55), sz: s, rot: r.range(0, 6.28), col: tint(['#3e5a44', '#34504e', '#4e6448', '#465a48'], r, 0.8, 1.0) });
       }
@@ -472,7 +490,7 @@ export default {
       const nb = mkBuf(); addBlade(nb, v3(0, 0, 0), v3(1, 0.02, 0).normalize(), 1, 0.05, new THREE.Color('#ffffff'), 0.4, new THREE.Color('#d0a0d0'));
       const ndlG = own(toGeo(nb));
       for (let i = 0; i < 400; i++) {
-        const u = r.range(U0 + 0.01, 0.99), off = (r() < 0.5 ? -1 : 1) * Math.pow(r(), 0.7) * 6, q = beside(u, off), L = r.range(0.35, 0.9);
+        const u = r.range(U0 + 0.01, 0.99), off = (r() < 0.5 ? -1 : 1) * Math.pow(r(), 0.7) * 4.5, q = beside(u, off), L = r.range(0.35, 0.9);
         ndl.push({ x: q.x, z: q.z, y: gh(q.x, q.z) + 0.1, sc: L, rot: r.range(0, 6.28), tz: r.range(-0.08, 0.08), col: tint(['#3b5b6a', '#5a5060', '#7a6a5a', '#27485a', '#6a5a50'], r, 0.9, 1.2) });
       }
       instance(ndlG, leafMat, ndl);
@@ -483,21 +501,21 @@ export default {
     {
       const r = RS.fork('slabs'), vars = [];
       for (let v = 0; v < 4; v++) {
-        const g = new THREE.CylinderGeometry(1, 1.04, 0.14, r.int(10, 14), 1);
+        const g = new THREE.CylinderGeometry(1, 1.06, 0.16, r.int(18, 24), 1);
         const pos = g.attributes.position, ph = r.range(0, 6);
-        for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), z = pos.getZ(i), a = Math.atan2(z, x), k = 0.55 + 0.35 * (N.n2(Math.cos(a) * 1.3 + ph, Math.sin(a) * 1.3 + v * 3) * 0.5 + 0.5) + 0.12 * N.n2(Math.cos(a) * 4 + ph, Math.sin(a) * 4); pos.setX(i, x * k * 1.25); pos.setZ(i, z * k * 0.85); }
+        for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), z = pos.getZ(i), a = Math.atan2(z, x), k = 0.55 + 0.35 * (N.n2(Math.cos(a) * 1.3 + ph, Math.sin(a) * 1.3 + v * 3) * 0.5 + 0.5) + 0.12 * N.n2(Math.cos(a) * 4 + ph, Math.sin(a) * 4) + 0.07 * N.n2(Math.cos(a) * 11 + ph, Math.sin(a) * 11 + v); pos.setX(i, x * k * 1.25); pos.setZ(i, z * k * 0.85); }
         vars.push(bakeFaces(g, 0, r, 0.55)); g.dispose();
       }
       const lists = [[], [], [], []], nS = Math.round(900 * Math.min(1, 0.6 + detail * 0.4));
       let made = 0, tries = 0;
       while (made < nS && tries++ < nS * 4) {
         const late = r() < 0.32, u = late ? r.range(0.8, 1.04) : r.range(U0, 0.99), side = r() < 0.5 ? -1 : 1, s = r.range(0.6, 3.0) * (r() < 0.2 ? 0.6 : 1);
-        const off = side * (4.6 + 0.55 * s + Math.pow(r(), 1.5) * (late ? 150 : 95));
+        const off = side * (3.4 + 0.55 * s + Math.pow(r(), 1.5) * (late ? 150 : 95));
         const q = beside(Math.min(u, 1), off); if (u > 1) { q.z -= (u - 1) * PL; }
         if (POOL.d(q.x, q.z) < 1.2 + s / 7 || outcrops.some((o) => Math.hypot(o.x - q.x, o.z - q.z) < o.r + s)) continue;
         const k = 0.82 + 0.2 * (1 - forestMask(q.x, q.z));
         const nr = path.nearestXZ(q.x, q.z);
-        lists[made & 3].push({ x: q.x, z: q.z, y: gh(q.x, q.z) - 0.02, sx: s, sy: r.range(0.6, 1.2), sz: s * r.range(0.7, 1.3), rot: r.range(0, 6.28), tx: r.range(-0.07, 0.07), tz: r.range(-0.07, 0.07), col: new THREE.Color().lerpColors(new THREE.Color('#76666e'), new THREE.Color('#948088'), r()).multiplyScalar(k * r.range(0.85, 1.02)), u: nr.u });
+        lists[made & 3].push({ x: q.x, z: q.z, y: gh(q.x, q.z) + 0.02, sx: s, sy: r.range(0.7, 1.2), sz: s * r.range(0.7, 1.3), rot: r.range(0, 6.28), tx: r.range(-0.07, 0.07), tz: r.range(-0.07, 0.07), col: new THREE.Color().lerpColors(new THREE.Color('#76666e'), new THREE.Color('#948088'), r()).multiplyScalar(k * r.range(0.85, 1.02)), u: nr.u });
         made++;
       }
       const mat = own(new THREE.ShaderMaterial({
@@ -633,7 +651,7 @@ export default {
       // desert roses (kept: 150 of them, 7.5 m and more off the trail)
       const rv = [makeRose(0), makeRose(1)], roses = [[], []];
       for (let i = 0; i < 150; i++) {
-        const x = (r() < 0.5 ? -1 : 1) * r.range(7, 70), z = r.range(F_Z0 - 60, F_Z1 + 40); if (pathD(x, z) < 7.5 || POOL.d(x, z) < 1.2) continue;
+        const x = (r() < 0.5 ? -1 : 1) * r.range(7, 70), z = r.range(F_Z0 - 60, -115); if (pathD(x, z) < 7.5 || POOL.d(x, z) < 1.2) continue;
         roses[r.int(0, 1)].push({ x, z, sc: r.range(1.1, 1.9), rot: r.range(0, 6.28) });
       }
       roses.forEach((l, v) => { instance(rv[v].wood, woodMat, l); instance(rv[v].leaf, leafMat, l); });
@@ -752,7 +770,7 @@ export default {
       POOL.uniforms = mat.uniforms;
       // the dark damp rim: from the water's edge out onto the bank, fading
       const rp = [], rc = [], ri = [], dark = new THREE.Color('#3a2e38');
-      for (let i = 0; i <= 3; i++) for (let k = 0; k < AN; k++) { const kk = 1 + 0.07 * i; POOL.edge(k / AN * 6.2832, kk, o); rp.push(o.x, i === 0 ? poolLevel + 0.01 : gh(o.x, o.z) + 0.05, o.z); rc.push(dark.r, dark.g, dark.b, i === 0 ? 0.92 : i === 3 ? 0 : 0.85 - 0.35 * i); }
+      for (let i = 0; i <= 3; i++) for (let k = 0; k < AN; k++) { const nz = N.n2(k * 0.37 + 5, i * 0.9), kk = 1 + 0.07 * i * (0.6 + 0.8 * (nz * 0.5 + 0.5)); POOL.edge(k / AN * 6.2832, kk, o); rp.push(o.x, i === 0 ? poolLevel + 0.01 : gh(o.x, o.z) + 0.05, o.z); rc.push(dark.r, dark.g, dark.b, (i === 0 ? 0.92 : i === 3 ? 0 : 0.85 - 0.35 * i) * (0.55 + 0.45 * (N.n2(k * 0.9, i + 3) * 0.5 + 0.5))); }
       for (let i = 0; i < 3; i++) for (let k = 0; k < AN; k++) { const a = i * AN + k, b = i * AN + (k + 1) % AN; ri.push(a, b, a + AN, b, b + AN, a + AN); }
       const rg = own(new THREE.BufferGeometry()); rg.setAttribute('position', new THREE.Float32BufferAttribute(rp, 3)); rg.setAttribute('color', new THREE.Float32BufferAttribute(rc, 4)); rg.setIndex(ri);
       const rim = new THREE.Mesh(rg, own(new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })));
@@ -769,7 +787,7 @@ export default {
           let y = h * (0.35 + 0.65 * (N.fbm2(x * 0.0035 + seed, seed * 3.1, 3) * 0.5 + 0.5));
           if (spire) {   // jagged granite: ridged noise sharpened into needles, with fine teeth
             const rd = 1 - Math.abs(N.n2(x * 0.0065 + seed * 2, seed)), rd2 = 1 - Math.abs(N.n2(x * 0.017 + seed, seed * 5));
-            y += spire * Math.pow(rd, 3) * (0.6 + 0.4 * (N.n2(x * 0.002, seed) * 0.5 + 0.5)) + spire * 0.18 * Math.pow(rd2, 5) + 4 * N.n2(x * 0.09, seed);
+            y += spire * smoothstep(210, 380, Math.abs(x - 10)) * Math.pow(rd, 2.2) * (0.6 + 0.4 * (N.n2(x * 0.002, seed) * 0.5 + 0.5)) + spire * 0.1 * Math.pow(rd2, 4) * smoothstep(210, 380, Math.abs(x - 10)) + 3 * N.n2(x * 0.09, seed);
           }
           pts.push(x, y, z, x, -10, z); cols.push(top.r, top.g, top.b, bot.r, bot.g, bot.b);
           if (i) { const a = (i - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
@@ -777,14 +795,14 @@ export default {
         const g = own(new THREE.BufferGeometry()); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); g.setIndex(idx);
         const m = new THREE.Mesh(g, own(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, side: THREE.DoubleSide }))); m.frustumCulled = false; scene.add(m);
       };
-      ridge(-800, 150, 1.3, '#6e4f92', '#a07ab8', 0); ridge(-980, 170, 4.7, '#7d60a0', '#a886c0', 120); ridge(-1180, 220, 8.1, '#8d72ae', '#b090c8', 160);
+      ridge(-800, 150, 1.3, '#6e4f92', '#a07ab8', 0); ridge(-980, 170, 4.7, '#7d60a0', '#a886c0', 70); ridge(-1180, 220, 8.1, '#8d72ae', '#b090c8', 95);
       // mist: between each pair of ridges, and low over the plateau before them
       const mc = mkCanvas(128); { const g = mc.getContext('2d'), rg = g.createRadialGradient(64, 64, 2, 64, 64, 62); rg.addColorStop(0, 'rgba(255,255,255,0.85)'); rg.addColorStop(0.5, 'rgba(255,255,255,0.32)'); rg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = rg; g.fillRect(0, 0, 128, 128); }
       const mt = own(new THREE.CanvasTexture(mc)); mt.colorSpace = THREE.SRGBColorSpace;
       const r = RS.fork('mist'), sprites = [];
       const band = (n, z0, z1, y0, y1, w0, w1, op, hex) => { const m = own(new THREE.SpriteMaterial({ map: mt, color: hex, transparent: true, opacity: op, depthWrite: false, fog: false })); for (let i = 0; i < n; i++) { const sp = new THREE.Sprite(m), w = r.range(w0, w1); sp.scale.set(w, w * r.range(0.12, 0.2), 1); sp.position.set(r.range(-1300, 1300), r.range(y0, y1), r.range(z0, z1)); scene.add(sp); sprites.push({ sp, x0: sp.position.x, v: r.range(1, 3) * (i % 2 ? 1 : -1) }); } };
-      band(9, -880, -900, 25, 70, 500, 900, 0.42, '#d6a6cc');
-      band(9, -1070, -1090, 35, 95, 600, 1000, 0.4, '#dcb0d2');
+      band(10, -880, -900, 25, 80, 500, 900, 0.5, '#d6a6cc'); band(8, -955, -970, 40, 120, 500, 900, 0.38, '#dab0d0');
+      band(10, -1070, -1090, 50, 150, 600, 1000, 0.45, '#dcb0d2');
       band(10, -420, -720, 6, 22, 220, 420, 0.3, '#d4a0c6');
       updaters.push((dt, t) => { for (const o of sprites) o.sp.position.x = o.x0 + o.v * t; });
       // low ground mist banks drifting under the trees (kept)
@@ -792,11 +810,11 @@ export default {
       for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(own(new THREE.PlaneGeometry(150, 110).rotateX(-Math.PI / 2)), own(new THREE.MeshBasicMaterial({ map: mt, color: '#d6a0cc', transparent: true, opacity: 0.085, depthWrite: false }))); m.position.set(r.range(-70, 70), r.range(1.6, 3.4), F_Z0 - 40 - i * 110 + r.range(-30, 30)); m.renderOrder = 2; scene.add(m); mists.push({ m, ph: r.range(0, 6.28), x0: m.position.x }); }
       updaters.push((dt, t) => { for (const o of mists) o.m.position.x = o.x0 + 6 * Math.sin(t * 0.07 + o.ph); });
       // far dragon blood silhouettes on the plateau edge: flat dark umbrellas the haze turns violet
-      const sh = new THREE.Shape(); sh.moveTo(-0.05, 0); sh.lineTo(-0.065, 0.42); sh.lineTo(-0.2, 0.52); sh.lineTo(-0.47, 0.58);
-      for (let k = 0; k <= 18; k++) { const a = Math.PI - (k / 18) * Math.PI, bump = 1 + 0.06 * Math.sin(k * 2.7); sh.lineTo(Math.cos(a) * 0.5 * bump, 0.6 + Math.sin(a) * 0.26 * bump); }
-      sh.lineTo(0.47, 0.58); sh.lineTo(0.2, 0.52); sh.lineTo(0.065, 0.42); sh.lineTo(0.05, 0); sh.closePath();
+      const sh = new THREE.Shape(); sh.moveTo(-0.05, 0); sh.lineTo(-0.065, 0.42); sh.lineTo(-0.22, 0.5); sh.lineTo(-0.5, 0.56);
+      for (let k = 0; k <= 18; k++) { const a = Math.PI - (k / 18) * Math.PI, bump = 1 + 0.06 * Math.sin(k * 2.7); sh.lineTo(Math.cos(a) * 0.55 * bump, 0.58 + Math.sin(a) * 0.3 * bump); }
+      sh.lineTo(0.5, 0.56); sh.lineTo(0.22, 0.5); sh.lineTo(0.065, 0.42); sh.lineTo(0.05, 0); sh.closePath();
       const sg = own(new THREE.ShapeGeometry(sh)), sl = [];
-      for (let i = 0; i < 54; i++) { const x = r.range(-650, 650), z = r.range(-380, -720); if (Math.abs(x - 2) < 30 && z > -460) continue; const hh = r.range(9, 17); sl.push({ x, z, y: gh(x, z) - 0.5, sx: hh * r.range(1.1, 1.5), sy: hh, sz: 1, rot: r.range(-0.2, 0.2), col: new THREE.Color('#3e2c52').multiplyScalar(r.range(0.9, 1.15)) }); }
+      for (let i = 0; i < 90; i++) { const x = r.range(-650, 650), z = r.range(-250, -720); if (Math.abs(x - 2) < 34 + (z > -330 ? 30 : 0) && z > -460) continue; const hh = r.range(8, 15); sl.push({ x, z, y: gh(x, z) - 0.5, sx: hh * r.range(1.1, 1.5), sy: hh, sz: 1, rot: r.range(-0.2, 0.2), col: new THREE.Color('#4a3866').multiplyScalar(r.range(0.9, 1.12)) }); }
       instance(sg, own(new THREE.MeshBasicMaterial({ color: '#ffffff', side: THREE.DoubleSide })), sl);
     }
 
@@ -853,7 +871,7 @@ export default {
       for (let i = 0; i < NB; i++) {
         const a = r.range(0, 6.28);
         birds.push({
-          ph: r.range(0, 6.28), ahead: r.range(13, 25), side: (i % 2 ? 1 : -1) * r.range(0.6, 4.5), up: r.range(2.2, 5.5), sc: r.range(0.9, 1.12),
+          ph: r.range(0, 6.28), ahead: r.range(12, 22), side: (i % 2 ? 1 : -1) * r.range(0.4, 2.8), up: r.range(1.4, 3.6), sc: r.range(0.9, 1.12),
           s0: C0.clone().add(v3(r.range(-2.5, 2.5), r.range(-1.5, 0.5), r.range(-2.5, 2.5))), bdir: v3(Math.cos(a) * 0.6, 0, Math.sin(a) * 0.6 - 1).normalize(), brise: r.range(6, 11),
           perch: C1tips[Math.min(C1tips.length - 1, i * 2 + r.int(0, 1))].clone().add(v3(0, 0.12, 0)), yaw: r.range(0, 6.28),
           drink: DRINK.clone().add(v3(r.range(-1.6, 1.6), 0, r.range(-1.6, 1.6))),
@@ -865,7 +883,7 @@ export default {
     const _lp = new THREE.Vector3(), _lt = new THREE.Vector3(), _a1 = new THREE.Vector3(), _a2 = new THREE.Vector3();
     const lead = (b, T, t, out) => {
       const u = T / DUR, uu = Math.min(0.985, u + b.ahead / PL); path.pointAt(uu, _lp); path.tangentAt(uu, _lt);
-      const away = smoothstep(0.8, 0.98, u), sd = b.side * (1 + 2.5 * away) + 2.2 * Math.sin(t * 0.6 + b.ph);   // each bird weaves a little, banking as it goes   // near the end the flock lifts and fans out, clear of the portal
+      const away = smoothstep(0.8, 0.98, u), sd = b.side * (1 + 2.5 * away) + 1.2 * Math.sin(t * 0.6 + b.ph);   // each bird weaves a little, banking as it goes   // near the end the flock lifts and fans out, clear of the portal
       return out.set(_lp.x - _lt.z * sd, _lp.y + b.up + 16 * away + 0.45 * Math.sin(t * 0.9 + b.ph), _lp.z + _lt.x * sd);
     };
     const skimAt = (b, T, out) => {
@@ -918,7 +936,7 @@ export default {
       const g = own(new THREE.BufferGeometry()); g.setAttribute('position', new THREE.Float32BufferAttribute(P_, 3)); g.setAttribute('aWing', new THREE.Float32BufferAttribute(W_, 1)); g.setAttribute('aPatch', new THREE.Float32BufferAttribute(K_, 1));
       const aS = new THREE.InstancedBufferAttribute(new Float32Array(NB * 3), 3); aS.setUsage(THREE.DynamicDrawUsage); g.setAttribute('aS', aS);
       const mat = own(new THREE.ShaderMaterial({
-        uniforms: fogU({ uDark: { value: new THREE.Color('#141828') }, uGloss: { value: new THREE.Color('#3a4a7a') }, uOrange: { value: new THREE.Color('#c86a2a') } }), fog: true, side: THREE.DoubleSide,
+        uniforms: fogU({ uDark: { value: new THREE.Color('#2a2a46') }, uGloss: { value: new THREE.Color('#6a6aa0') }, uRim: { value: new THREE.Color('#f0a8a8') }, uOrange: { value: new THREE.Color('#c86a2a') } }), fog: true, side: THREE.DoubleSide,
         vertexShader: /* glsl */`attribute float aWing, aPatch; attribute vec3 aS; varying float vPatch, vG;
           #include <fog_pars_vertex>
           void main(){
@@ -931,9 +949,10 @@ export default {
             vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(l, 1.); gl_Position = projectionMatrix * mvPosition;
             #include <fog_vertex>
           }`,
-        fragmentShader: /* glsl */`uniform vec3 uDark, uGloss, uOrange; varying float vPatch, vG;
+        fragmentShader: /* glsl */`uniform vec3 uDark, uGloss, uOrange, uRim; varying float vPatch, vG;
           #include <fog_pars_fragment>
-          void main(){ vec3 c = mix(uDark, uGloss, 0.18 * vG); c = mix(c, uOrange, clamp(vPatch, 0., 1.) * 0.85); gl_FragColor = vec4(c, 1.);
+          void main(){ vec3 c = mix(uDark, uGloss, 0.3 * vG) + uRim * (0.12 + 0.2 * vG);   // a warm rim from the moon side: never flat black
+            c = mix(c, uOrange * 1.3, clamp(vPatch, 0., 1.) * 0.9); gl_FragColor = vec4(c, 1.);
             #include <fog_fragment>
           }`,
       }));
@@ -956,9 +975,9 @@ export default {
         const flapping = climbing || Math.sin(t * 1.5 + b.ph) > -0.25;   // bursts of quick flaps between glides
         const flap = st.fold > 0.5 ? 0 : flapping ? 0.15 + 0.85 * Math.sin(t * 6.2832 * b.flapF + b.ph) : 0.4;   // gliding: wings held in a shallow V
         b.prevFlap = flap;
-        const s = 0.44 * b.sc * st.vis;
+        const s = 0.85 * b.sc * st.vis;
         _bs.set(s, s, s); _bm.compose(b.pos, _bq, _bs); birdMesh.im.setMatrixAt(i, _bm);
-        birdMesh.aS.setXYZ(i, flap, st.fold, (1 - st.fold) * (0.35 + 0.65 * Math.max(0, -flap)) * (flapping ? 1 : 0.5));
+        birdMesh.aS.setXYZ(i, flap, st.fold, (1 - st.fold) * (0.6 + 0.4 * Math.max(0, -flap)));
       }
       birdMesh.im.instanceMatrix.needsUpdate = true; birdMesh.aS.needsUpdate = true;
     };
@@ -985,14 +1004,14 @@ export default {
     const pois = [
       { at: C1, from: 2.5 / DUR, to: 4.5 / DUR, fade: 0.3, weight: 0.62 },
       { at: (time, u) => { const f = Math.min(0.97, front(u * DUR) + 0.02), q = frameAt(f); return _pa.set(q.p.x + q.lx * 22, gh(q.p.x, q.p.z) + 17, q.p.z + q.lz * 22); }, from: 6.8 / DUR, to: 9.5 / DUR, fade: 0.3, weight: 0.4 },
-      { at: _pb.copy(DRINK).add(v3(0, 0.6, 0)), from: 11.2 / DUR, to: 13.5 / DUR, fade: 0.32, weight: 0.5 },
+      { at: _pb.set(POOL.cx + POOL.f.fx * 8, poolLevel + 0.4, POOL.cz + POOL.f.fz * 8), from: 11.2 / DUR, to: 13.5 / DUR, fade: 0.32, weight: 0.65 },
     ];
 
     return {
       scene, path, duration, title: 'The Dragon Blood Forest', ride: 'none', style: 'none', companion: 'none',
       camera: { fov: 62, near: 1.1, nearThrough: 1.1, far: 6000, lookAhead: 40, sway: 0, bank: 0.08 },
       pois,
-      portal: { shape: 'circle', style: 'ring', radius: 9, color: '#e090b8', veil: '#e090b8', glow: 0.75, halo: true, revealDistance: 700 },   // the pink moon's small eye
+      portal: { shape: 'circle', style: 'ring', radius: 9, color: '#e090b8', veil: '#e090b8', glow: 0.75, halo: false, revealDistance: 700 },   // the pink moon's small eye
       post: { exposure: 1.0, bloom: { strength: 0.3, radius: 0.45, threshold: 0.95 }, grade: { saturation: 1.1, contrast: 1.05, tint: '#fff0f4', shadowTint: '#1a1030', vignette: 0.25, grain: 0, aberration: 0 } },
       update(dt, t, camera, u) {
         const T = (u || 0) * DUR;

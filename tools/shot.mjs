@@ -35,12 +35,24 @@ await send('Page.navigate', { url: `${BASE}/?world=${encodeURIComponent(world)}&
 let t0 = 0; for (let i = 0; i < 480; i++) { await sleep(250); if (await ev(`(() => { const e = window.__engine; const c = e && e.cur; return !!(c && c.def && c.def.id === ${JSON.stringify(world)}); })()`)) { t0 = Date.now(); break; } }
 if (!t0) { console.error('the world never appeared within 120 s'); fs.writeFileSync(path.join(outDir, `${world}-console.txt`), logs.join('\n')); done(1); }
 const files = [];
+// By default each frame is taken when the flight's progress reaches t / duration (the moment a world's scripted events,
+// which run on T = u * duration, are at time t), so a slow or overloaded machine still gives the right moments.
+// CLOCK=1 takes frames by wall-clock time instead (the old behaviour).
+const DURW = await ev(`(() => { const c = window.__engine && window.__engine.cur; return c ? c.duration : null; })()`);
 for (const t of times.split(',').map(Number)) {
-  const wait = t0 + t * 1000 - Date.now(); if (wait > 0) await sleep(wait);
+  if (process.env.CLOCK || !DURW) { const wait = t0 + t * 1000 - Date.now(); if (wait > 0) await sleep(wait); }
+  else { const target = Math.min(0.999, t / DURW); let last = -1, since = Date.now();
+    for (let i = 0; i < 6000; i++) { const uu = await ev(`(() => { const c = window.__engine && window.__engine.cur; return c && c.path ? c.dist / c.path.length : 1; })()`); if (uu >= target) break;
+      // the engine holds the flight near the portal while the next world builds; take the frame rather than wait forever
+      if (uu > last + 0.002) { last = uu; since = Date.now(); } else if (Date.now() - since > 4000) { console.log(`(t=${t}s: flight held at u=${uu.toFixed(3)}, frame taken early)`); break; }
+      await sleep(25); } }
+  // hold the flight while the picture is taken (a 1080x1920 capture can take seconds, and the world would run on meanwhile)
+  const hold = !process.env.CLOCK; if (hold) { await ev(`(() => { window.__engine.settings.paused = true; })()`); await sleep(200); }
   const shot = await send('Page.captureScreenshot', { format: 'png' }); const f = path.join(outDir, `${world}-${String(t).replace('.', '_').padStart(4, '0')}.png`);
   // the flight's real progress at this frame: u = distance along the route / its length (what a look's from/to are in)
   const u = await ev(`(() => { const c = window.__engine && window.__engine.cur; return c && c.path ? (c.dist / c.path.length) : null; })()`);
   fs.writeFileSync(f, Buffer.from(shot.result.data, 'base64')); files.push([t, f, u]);
+  if (hold) await ev(`(() => { window.__engine.settings.paused = false; })()`);
 }
 fs.writeFileSync(path.join(outDir, `${world}-console.txt`), logs.join('\n'));
 ws.close();
