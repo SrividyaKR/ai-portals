@@ -18,7 +18,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // ---------------------------------------------------------------- the flight, by time (T = u * DUR)
 const DUR = 20, VEL = 15, EYE = 0.9;
-const R0 = 13.3, R1 = 16.6, S0 = 16.6, S1 = 19.3, LIFT = 27, END_Y = 9;   // knee height to 13.3 s, a short rise to 28 m, then settle onto the sun
+const R0 = 14.8, R1 = 16.2, S0 = 16.2, S1 = 19.0, LIFT = 13, END_Y = 9;   // knee height to 14.8 s, a short rise to 14 m, then settle onto the sun
 const sm = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
 const ss = (a, b, x) => sm((x - a) / (b - a));
 const yOf = (T) => EYE + 0.025 * Math.sin((T * Math.PI) / 0.75) * (1 - ss(R0 - 0.6, R0, T)) + LIFT * ss(R0, R1, T) - (LIFT + EYE - END_Y) * ss(S0, S1, T);
@@ -150,7 +150,7 @@ export default {
 
     // the skater's own place along the line: 7.2 m ahead while skating; during the rise it sprints out ahead (so it stays below us,
     // the ruler on the cells), stops hard in a spray, pushes twice and leaps, and is through the ring just before we are
-    const K = [[R0, hcOf(R0) + 7.2, VEL], [16.5, hcOf(16.5) + 22.5, 13], [17.35, 0, 1.4], [18.8, hEnd - 7.6, 11.5]];
+    const K = [[R0, hcOf(R0) + 7.2, VEL], [16.3, hcOf(16.3) + 18, 14], [17.35, 0, 6], [18.8, hEnd - 7.6, 11.5]];
     K[2][1] = K[3][1] - ((K[2][2] + K[3][2]) / 2) * (K[3][0] - K[2][0]) - 0.6;
     const T_TAKE = 18.8, V_LEAP = 11.5;
     const hSkOf = (T) => {
@@ -172,7 +172,7 @@ export default {
     };
     const pools = U.uPool.value;
     { const a = side(16, 0); pools[0].set(a[0], a[1], 48, 52); }                                    // the hook's water: stars underfoot
-    { const a = side(H_LAND + 128, 55); pools[1].set(a[0], a[1], 70, 115); }                               // the flamingos' lagoon, and the landing
+    { const a = side(H_LAND + 50, 40); pools[1].set(a[0], a[1], 45, 70); }                               // the flamingos' lagoon, and the landing
     { const a = side(hEnd - 30, 0); pools[2].set(a[0], a[1], 70, 95); }                              // the glitter column to the sun
     { const a = side(hEnd + 470, 0); pools[3].set(a[0], a[1], 330, 170); }                           // the Andean flamingos' far lagoon
     { const a = side(hcOf(8.6) + 8, -30); pools[4].set(a[0], a[1], 22, 50); }                        // puddles among the salt mounds
@@ -274,11 +274,11 @@ export default {
             vec2 cid, nid, nr; float e = vor(p, cid, nid, nr);
             float pw = max(length(fwidth(p)), 1e-6), vis = smoothstep(10., 34., 1. / pw);
             float eh = h1(cid + nid + 17.);                                                   // one number per edge (the same from both sides)
-            float cap = k == 0 ? .09 : k == 1 ? .3 : k == 2 ? .7 : 1.6;                       // the big networks' ridges stay narrow: pressure lines, not roads
+            float cap = k == 0 ? .06 : k == 1 ? .3 : k == 2 ? .7 : 1.6;                       // the big networks' ridges stay narrow: pressure lines, not roads
             float rw = max(min(.021 * mix(.5, 2., vn(p * 1.7 + 3. * fk)), cap / S), 1.1 * pw);   // ridge width varies 0.5-2x along its length
             float prof = eh > .7 ? 1. - smoothstep(rw * .42, rw * .42 + 1.3 * pw, abs(e - rw * 1.15))   // doubled: two lips with a groove
                                  : 1. - smoothstep(rw, rw + 1.4 * pw, e);
-            prof *= (1. - step(eh, .15) * smoothstep(.4, .6, vn(p * 2.3 + 11.))) * vis * (k == 0 ? 1. : k == 1 ? .8 : mix(.28, .85, smoothstep(4., 20., cameraPosition.y)));   // about 15% are broken
+            prof *= (1. - step(eh, .15) * smoothstep(.4, .6, vn(p * 2.3 + 11.))) * vis * (k == 0 ? .85 : (k == 1 ? .8 : mix(.28, .85, smoothstep(4., 20., cameraPosition.y))) * smoothstep(6., 25., t));   // about 15% are broken
             if (prof > ridge) face = dot(-nr, sd);                                            // the raised lip's side toward the sun
             ridge = max(ridge, prof);
             shore = max(shore, (1. - smoothstep(rw, rw + .14, e)) * vis);
@@ -317,7 +317,7 @@ export default {
           vec3 col = mix(dry, mirror, wet);
           col = mix(col, vec3(.30, .36, .48), shore * .3 * wetCell * (1. - film));
           vec3 rSh = vec3(.353, .392, .478), rMid = vec3(.486, .529, .612), rPk = vec3(.60, .51, .56);
-          vec3 rc = face > 0. ? mix(rMid, rPk, face * (.35 + .4 * uDawn)) : mix(rMid, rSh, -face);
+          vec3 rLit = mix(mix(rSh, rMid, .55), rPk, .3 + .35 * uDawn), rc = face > 0. ? mix(rSh, rLit, face) : rSh * (1. + .25 * face);   // a raised lip: lit toward the dawn, shaded away
           col = mix(col, rc, ridge * mix(1., .3, film));
           { // salt crystals catching the low light in the mid-field (the near glints are particles on the same ridges)
             vec2 gc = floor(w * 9.); float gk = step(.987, h1(gc + 3.)) * (.5 + .5 * sin(uTime * 1.1 + h1(gc) * 40.)) * ridge * (1. - smoothstep(.02, .09, pwm * 9.)) * smoothstep(15., 30., t);
@@ -458,8 +458,8 @@ export default {
       for (let i = 0; i < 220; i++) { const h = tr.range(hA, hB), [x, z] = side(h, -tr.range(165, 255)), s = tr.range(0.6, 1.4); tl.push(new THREE.Matrix4().compose(new THREE.Vector3(x, 0, z), new THREE.Quaternion(), new THREE.Vector3(s, s * tr.range(0.7, 1.3), s))); }
       const ti = new THREE.InstancedMesh(tg, paint({ lit: 0.8, rim: 0.4 }), tl.length); tl.forEach((m, i) => ti.setMatrixAt(i, m)); ti.frustumCulled = false; scene.add(ti);
       const vic = { ...F.HERD_PRESETS.antelope, h: 0.95, horns: 0, neckLen: 0.62, neckAng: 72, neck: [0.1, 0.065], ears: 0.12, tail: 0.12, pattern: 'none', coat: '#b07a4a', belly: '#efe6d6', legs: '#a87448', sock: '#c9ad88', accent: '#f4ecdc', speed: 1, varieties: 0 };
-      const route = []; for (let i = 0; i <= 24; i++) { const h = hcOf(4) + ((hcOf(16) - hcOf(4)) * i) / 24, [x, z] = side(h, -205 + 6 * Math.sin(i * 0.8)); route.push([x, 0, z]); }
-      const herd = F.makeHerd({ rng: R.fork('vicuna'), preset: vic, count: 8, size: 1.35, mode: 'migrate', gait: 'run', speed: 0.85, route, closed: false, spread: [4, 30], light, blobShadow: true, shadowOpacity: 0.3 });
+      const route = []; for (let i = 0; i <= 24; i++) { const h = hcOf(8) + 50 + (150 * i) / 24, [x, z] = side(h, -72 + 6 * Math.sin(i * 0.8)); route.push([x, 0, z]); }
+      const herd = F.makeHerd({ rng: R.fork('vicuna'), preset: vic, count: 8, size: 1.6, mode: 'migrate', gait: 'run', speed: 0.85, route, closed: false, spread: [4, 30], light, blobShadow: true, shadowOpacity: 0.3 });
       scene.add(herd.object); fauna.push({ update: (dt, t) => herd.update(dt, t) });
     }
     await tick();
@@ -468,7 +468,7 @@ export default {
     const fr = R.fork('flamingos');
     // James's (deeper pink, smaller): standing in the lagoon 30-90 m right of the landing, until the landing sends them up
     const jamesPos = [];
-    while (jamesPos.length < 150) { const off = 30 + 60 * Math.pow(fr(), 0.8), along = fr.range(60, 200), [x, z] = side(H_LAND + along, off); jamesPos.push([x, 0, z]); }
+    while (jamesPos.length < 150) { const off = 30 + 20 * Math.pow(fr(), 0.8), along = fr.range(25, 80), [x, z] = side(H_LAND + along, off); jamesPos.push([x, 0, z]); }
     const james = F.makeWaders({ rng: fr.fork('j'), species: 'flamingo', positions: jamesPos, count: jamesPos.length, size: 1.0, level: 0, facing: Math.PI * 0.5, scatterYaw: 1.2, peckRate: 0.5, active: 0.55, light, blobShadow: false,
       body: '#e07a92', belly: '#ea95a8', wing: '#d0607e', neckC: '#e88aa0', cap: '#e88aa0', legC: '#d86a84' });
     scene.add(james.object); fauna.push(james);
@@ -476,10 +476,10 @@ export default {
     const jAttr = (() => { for (const k in james.geometry.attributes) { const a = james.geometry.attributes[k]; if (a.isInstancedBufferAttribute && a.itemSize === 4 && Math.abs(a.array[0] - jamesPos[0][0]) < 1e-3 && Math.abs(a.array[2] - jamesPos[0][2]) < 1e-3) return a; } return null; })();
     const LANDXZ = side(H_LAND, 0), jGone = new Uint8Array(jamesPos.length), jWhen = jamesPos.map((p) => 11.95 + Math.hypot(p[0] - LANDXZ[0], p[2] - LANDXZ[1]) * 0.012 + fr() * 0.35);
     // the flock they become: running low across the film, lifting, then banking across the dawn band in front of us
-    const JC = side(H_LAND + 125, 58), g1 = ground(H_LAND + 125), fwd1 = [Math.sin(g1.th), -Math.cos(g1.th)], rt1 = [Math.cos(g1.th), Math.sin(g1.th)];
+    const JC = side(H_LAND + 50, 35), g1 = ground(H_LAND + 50), fwd1 = [Math.sin(g1.th), -Math.cos(g1.th)], rt1 = [Math.cos(g1.th), Math.sin(g1.th)];
     const fl = (f, r, y) => [JC[0] + fwd1[0] * f + rt1[0] * r, y, JC[1] + fwd1[1] * f + rt1[1] * r];
-    const liftRoute = [fl(-10, 0, 1.1), fl(25, 2, 1.4), fl(60, 0, 5), fl(110, -10, 15), fl(180, -35, 28), fl(270, -85, 42), fl(380, -170, 55), fl(520, -290, 66)];
-    const lift = F.makeFlock({ rng: fr.fork('lift'), species: 'flamingos', count: 150, form: 'loose', spread: [40, 1.0, 34], size: 1.15, speed: 12, route: liftRoute, closed: false, start: 0, wander: [1.4, 0.5, 1.4, 0.6], light,
+    const liftRoute = [fl(-8, 0, 1.0), fl(10, -2, 2.4), fl(30, -5, 8), fl(55, -10, 16), fl(90, -18, 26), fl(140, -32, 38), fl(220, -60, 52)];
+    const lift = F.makeFlock({ rng: fr.fork('lift'), species: 'flamingos', count: 150, form: 'loose', spread: [26, 1.0, 26], size: 1.6, speed: 12, route: liftRoute, closed: false, start: 0, wander: [1.4, 0.5, 1.4, 0.6], light,
       body: '#e8889c', belly: '#f0a4b4', wingC: '#d8607c', head: '#eea0b0', neckC: '#eea0b0', legC: '#d86a84' });
     lift.object.visible = false; scene.add(lift.object);
     // the Andean flamingos (paler, larger): a pink band 350-600 m out beyond the sun, grounded
@@ -524,7 +524,7 @@ export default {
     const FR0 = 2 * (SEG + 1) * 2; for (let q = 0; q < 6; q++) { const a = FR0 + q * 4; scarfIdx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
     const scarfGeo = (() => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(scarfPos, 3)); const n = scarfPos.length / 3, N = new Float32Array(n * 3); for (let i = 0; i < n; i++) N[i * 3 + 1] = 1; g.setAttribute('normal', new THREE.BufferAttribute(N, 3)); g.setIndex(scarfIdx); return prep(g, (x, y, z) => OCHRE); })();
     const makeSkater = (mirror) => {
-      const mat = paint({ lit: 1, rim: mirror ? 0.4 : 0.75, flut, mirror });
+      const mat = paint({ lit: 1, rim: mirror ? 0.5 : 1.7, tint: [1.3, 1.25, 1.35], flut, mirror });
       const mesh = (g, parent) => { const m = new THREE.Mesh(g, mat); m.frustumCulled = false; if (mirror) m.renderOrder = 2; parent.add(m); return m; };
       const g = new THREE.Group(), lean = new THREE.Group(); g.add(lean);
       const cloak = mesh(cloakGeo, lean); mesh(hoodGeo, lean); mesh(faceGeo, lean); mesh(bandGeo, lean); mesh(collarGeo, lean);
@@ -623,17 +623,17 @@ export default {
       scene, path, duration: DUR, title: 'The Salt Hexagons', ride: 'none', style: 'none', companion: 'none',
       camera: { fov: 62, near: 0.3, nearThrough: 0.4, far: 70000, lookAhead: 14, sway: 0.25, bank: 0.05 },
       pois: [
-        { at: [ISL.x, 25, ISL.z], from: 0.14, to: 0.31, fade: 0.35, weight: 0.3 },                                        // Incahuasi, right
-        { at: (time, u) => { const a = side(hcOf(u * DUR) + 55, -48); return [a[0], 3, a[1]]; }, from: 0.37, to: 0.51, fade: 0.35, weight: 0.35 },   // mounds, vicunas, Tunupa, left
-        { at: (time, u) => lift.positionAt(Math.max(0, u * DUR - 11.95), undefined, _q), from: 0.585, to: 0.67, fade: 0.3, weight: 0.45 },        // the flock, up and right
-        // the skater, held in the middle of the frame while we skate (its sway still swings it across), and followed up in its leap
-        { at: (time, u) => { const s = skaterAt(u * DUR); return [s.x, 1.5 + skY * 0.8, s.z]; }, from: 0.0, to: 0.66, fade: 0.08, weight: 0.4 },
+        // the skater, held in the middle of the frame while we skate; the looks below take the frame from it in their windows, then give it back
+        { at: (time, u) => { const s = skaterAt(u * DUR); return [s.x, 1.5 + skY * 0.8, s.z]; }, from: 0.0, to: 0.585, fade: 0.06, weight: 0.4 },
+        { at: [ISL.x, 25, ISL.z], from: 0.14, to: 0.31, fade: 0.35, weight: 0.62 },                                        // Incahuasi, right
+        { at: (time, u) => { const a = side(hcOf(u * DUR) + 50, -25); return [a[0], 1, a[1]]; }, from: 0.37, to: 0.51, fade: 0.35, weight: 0.65 },   // mounds, vicunas, Tunupa, left
+        { at: (time, u) => lift.positionAt(Math.max(0, u * DUR - 11.95), undefined, _q), from: 0.59, to: 0.7, fade: 0.3, weight: 0.7 },        // the flock, up and right
         // the rise: the gaze is held down onto the flat ahead (the skater in the lower frame, the horizon glow across the top), never up
         { at: (time, u) => {
           const T = u * DUR, c = camAt(u, _p), s = skaterAt(T), dx = s.x - c.x, dz = s.z - c.z, gap = Math.max(4, Math.hypot(dx, dz)), y = c.y;
-          const pd = Math.max(0.03, Math.min(0.45, 0.62 * Math.atan2(y, gap))), fx2 = dx / gap, fz2 = dz / gap;
+          const pd = Math.max(0.03, Math.min(0.38, Math.atan2(y, gap) - 0.36)), fx2 = dx / gap, fz2 = dz / gap;
           return [c.x + fx2 * 100 * Math.cos(pd), c.y - 100 * Math.sin(pd), c.z + fz2 * 100 * Math.cos(pd)];
-        }, from: 0.65, to: 1.0, fade: 0.12, weight: 0.92 },
+        }, from: 0.715, to: 1.0, fade: 0.1, weight: 0.92 },
       ],
       // the first sun of the day, half-risen out of the salar; the water gives it its lower half
       portal: { shape: 'circle', style: 'ring', radius: 9, color: '#f0b090', veil: '#f0b090', glow: 0.75, halo: true, revealDistance: 700 },
