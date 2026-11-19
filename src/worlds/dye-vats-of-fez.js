@@ -15,12 +15,12 @@ import * as fx from '../kit/fx.js';
 const DUR = 19;
 const sm = (s) => s * s * (3 - 2 * s);
 // the great indigo vat: the camera plunges through its surface at about 16.8 s and the portal lies on its floor
-const HV = { x: 0, z: -30, r: 9.5, surf: -0.3, bottom: -8.0 };
+const HV = { x: 0, z: -33, r: 12, surf: -0.3, bottom: -10.0 };
 // the flight, ~92 m at a constant ~4.9 m/s: the terrace lip, down to a 2 m eye by 2.4 s, an S over the ridges (left, then right),
 // a lift to 3.5 m over the lime vats, a descent toward the great vat's rim and the plunge, then level onto the portal
 const KEYS = [
-  [0, 8.0, 52], [0.2, 6.0, 47.5], [0.3, 2.9, 42], [-0.8, 2.0, 37], [-3.0, 2.0, 31], [-2.4, 2.05, 25], [0.6, 2.1, 19.5], [2.6, 2.5, 13.5],
-  [2.0, 3.3, 7], [0.4, 3.5, 0.5], [-0.6, 3.5, -5.5], [-0.3, 3.2, -11.5], [0, 2.85, -17], [0, 2.45, -21], [0, 0.8, -24.3], [0, -1.8, -27.4], [0, -3.8, -31], [0, -4.6, -35],
+  [0, 8.0, 52], [0.2, 6.0, 47.5], [0.0, 2.9, 42], [-2.6, 2.0, 37], [-6.0, 2.1, 31], [-4.6, 2.3, 25], [1.0, 2.9, 19.5], [5.2, 4.0, 13.5],
+  [6.0, 5.0, 7], [3.2, 5.1, 0.5], [-0.8, 5.0, -5.5], [-1.0, 4.8, -11.5], [0, 3.6, -17], [0, 2.9, -21], [0, 1.3, -24.4], [0, -1.4, -27.6], [0, -4.2, -31.5], [0, -6.6, -36], [0, -7.9, -40], [0, -8.4, -43],
 ];
 // one palette shared by vats, splashes and birds
 const DYE = { indigo: '#2f5fd0', saffron: '#f0b030', poppy: '#d4552f', mint: '#3fbf8a', rose: '#e0709a', henna: '#c0602a', lime: '#e8e4d8', tannin: '#8a6a3a' };
@@ -29,9 +29,9 @@ const DYES = COLOURED.map((k) => DYE[k]);
 // the dips: [T, bird, dye, side (+1 right of the line), metres ahead of the camera at T]. The hook is a dip every half second.
 const TIMES = [1.0, 1.5, 2.0, 2.5, 3.0];
 const DIPS = [
-  [TIMES[0], 0, 'indigo', 1, 9.0], [TIMES[1], 1, 'saffron', -1, 9.5], [TIMES[2], 2, 'poppy', 1, 10], [TIMES[3], 3, 'mint', -1, 10], [TIMES[4], 4, 'rose', 1, 10.5],
+  [TIMES[0], 0, 'indigo', 1, 6.5], [TIMES[1], 1, 'saffron', -1, 6.5], [TIMES[2], 2, 'poppy', 1, 7], [TIMES[3], 3, 'mint', -1, 7], [TIMES[4], 4, 'rose', 1, 7.5],
   [3.9, 5, 'henna', -1, 10], [4.8, 0, 'saffron', 1, 10], [5.7, 6, 'mint', -1, 9.5], [6.6, 1, 'rose', 1, 10], [7.5, 7, 'poppy', -1, 10],
-  [8.5, 2, 'mint', 1, 10], [9.5, 3, 'indigo', -1, 10], [10.4, 4, 'saffron', 1, 10], [11.5, 5, 'henna', -1, 9.5, true],
+  [8.5, 2, 'mint', 1, 10], [9.5, 3, 'indigo', -1, 10], [10.4, 4, 'saffron', 1, 10], [11.5, 5, 'henna', -0.5, 7, true],
 ];
 // the last pass: all eight dip in the great indigo vat in a ripple, one every 0.34 s; bird 5 is the last, the one we follow down
 const HV_ORDER = [3, 4, 6, 7, 0, 1, 2, 5];
@@ -113,12 +113,13 @@ export default {
       const gr = g.createLinearGradient(0, 0, 0, S); gr.addColorStop(0, '#e2d6c0'); gr.addColorStop(0.2, '#ece4d6'); gr.addColorStop(0.5, '#cfc2ac'); gr.addColorStop(0.62, '#8a7c68'); gr.addColorStop(1, '#5a4e40');
       g.fillStyle = gr; g.fillRect(0, 0, S, S);
       for (let i = 0; i < 60; i++) wrapBlob(g, S, R.range(0, S), R.range(0, 60), R.range(3, 12), `rgba(250,248,240,${R.range(0.2, 0.55)})`);   // lime crust
-      for (let i = 0; i < 9; i++) {   // old tide lines in other dyes, wavy
-        const c2 = rgb(i % 3 === 0 ? DYE.tannin : DYES[R.int(0, DYES.length - 1)]), y0 = R.range(56, 150), w = R.range(2, 9), a = R.range(0.12, 0.35), ph = R.range(0, 6.28), f = R.int(2, 5);
-        g.strokeStyle = `rgba(${c2},${a})`; g.lineWidth = w; g.beginPath();
-        for (let x = 0; x <= S; x += 8) { const y = y0 + 4 * Math.sin((x / S) * 6.283 * f + ph); x ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+      for (let i = 0; i < 5; i++) {   // old tide lines in other dyes: wavy and broken, never a full band
+        const c2 = rgb(i % 3 === 0 ? DYE.tannin : DYES[R.int(0, DYES.length - 1)]), y0 = R.range(60, 145), w = R.range(2, 6), a = R.range(0.1, 0.26), ph = R.range(0, 6.28), f = R.int(1, 3), ph2 = R.range(0, 6.28);
+        g.strokeStyle = `rgba(${c2},${a})`; g.lineWidth = w;
+        let on = false; for (let x = 0; x <= S; x += 6) { const y = y0 + 9 * Math.sin((x / S) * 6.283 * f + ph) + 4 * Math.sin(x * 0.11 + ph2), keep = Math.sin(x * 0.05 + ph2 * 3) > -0.2;
+          if (keep && !on) { g.beginPath(); g.moveTo(x, y); on = true; } else if (keep) g.lineTo(x, y); else if (on) { g.stroke(); on = false; } } if (on) g.stroke();
       }
-      for (let i = 0; i < 46; i++) {   // drips
+      for (let i = 0; i < 26; i++) {   // drips
         const c2 = rgb(R() < 0.4 ? '#5a4632' : DYES[R.int(0, DYES.length - 1)]), x = R.range(0, S), y0 = R.range(30, 90), len = R.range(30, 120), w = R.range(1.5, 5);
         const lg = g.createLinearGradient(0, y0, 0, y0 + len); lg.addColorStop(0, `rgba(${c2},0.4)`); lg.addColorStop(1, `rgba(${c2},0)`);
         g.fillStyle = lg; g.fillRect(x, y0, w, len); g.beginPath(); g.arc(x + w / 2, y0 + len * 0.7, w * 0.7, 0, 6.28); g.fill();
@@ -209,8 +210,9 @@ export default {
     }
     const causT = tex(causC, 6, 2);
     // the surface seen from below: a bright window of sky, soft caustic patches
-    const ceilC = mkCanvas(256); { const g = ceilC.getContext('2d'), S = 256; const rg = g.createRadialGradient(S / 2, S / 2, 10, S / 2, S / 2, S * 0.72); rg.addColorStop(0, '#b8d4ff'); rg.addColorStop(0.5, '#6a96e0'); rg.addColorStop(1, '#3a5cb0'); g.fillStyle = rg; g.fillRect(0, 0, S, S);
-      for (let i = 0; i < 70; i++) { const x = R.range(0, S), y = R.range(0, S), r = R.range(8, 28), q = g.createRadialGradient(x, y, 0, x, y, r); q.addColorStop(0, 'rgba(255,255,255,0.2)'); q.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = q; g.fillRect(x - r, y - r, r * 2, r * 2); } }
+    const ceilC = mkCanvas(256); { const g = ceilC.getContext('2d'), S = 256; const rg = g.createRadialGradient(S / 2, S / 2, 10, S / 2, S / 2, S * 0.72); rg.addColorStop(0, '#5a7ed4'); rg.addColorStop(0.5, '#2e4aa8'); rg.addColorStop(1, '#1a2a70'); g.fillStyle = rg; g.fillRect(0, 0, S, S);
+      g.lineCap = 'round'; for (let i = 0; i < 40; i++) { let x = R.range(0, S), y = R.range(0, S); g.strokeStyle = R() < 0.5 ? `rgba(10,16,50,${R.range(0.2, 0.45)})` : `rgba(120,150,230,${R.range(0.15, 0.3)})`; g.lineWidth = R.range(3, 12); g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += R.range(-30, 30); y += R.range(-30, 30); g.lineTo(x, y); } g.stroke(); }
+      for (let i = 0; i < 30; i++) { const x = R.range(0, S), y = R.range(0, S), r = R.range(8, 28), q = g.createRadialGradient(x, y, 0, x, y, r); q.addColorStop(0, 'rgba(160,190,255,0.12)'); q.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = q; g.fillRect(x - r, y - r, r * 2, r * 2); } }
     const ceilT = own(new THREE.CanvasTexture(ceilC)); ceilT.colorSpace = THREE.SRGBColorSpace;
     const softC = mkCanvas(128); { const g = softC.getContext('2d'); const rg = g.createRadialGradient(64, 64, 0, 64, 64, 64); rg.addColorStop(0, 'rgba(255,255,255,0.85)'); rg.addColorStop(0.55, 'rgba(255,255,255,0.4)'); rg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = rg; g.fillRect(0, 0, 128, 128); }
     const softT = own(new THREE.CanvasTexture(softC));
@@ -243,7 +245,7 @@ export default {
     const LIP = 1.13;   // a vat's lip reaches LIP x its radius
     for (const v of vats) { let dm = Infinity; for (const b of vats) if (b !== v) dm = Math.min(dm, Math.hypot(v.x - b.x, v.z - b.z)); v.r = Math.min(1.4, ((dm / 2 - 0.07) / LIP) * (R() < 0.8 ? R.range(0.9, 1.0) : R.range(0.75, 0.9))); }
     // the walkway: the ridges under the line are kept clear, and the great vat stands alone in its own ring of stone
-    for (const v of vats) v.gone = v.r < 0.62 || lineDist(v.x, v.z) < v.r * LIP + 0.3 || Math.hypot(v.x - HV.x, v.z - HV.z) < HV.r + 1.4 + v.r * LIP || v.z > 48.6;
+    for (const v of vats) v.gone = v.r < 0.62 || lineDist(v.x, v.z) < v.r * LIP + 0.05 || Math.hypot(v.x - HV.x, v.z - HV.z) < HV.r + 1.4 + v.r * LIP || v.z > 48.6;
     const V = vats.filter((v) => !v.gone);
     // zones as at Chouara: pale lime vats in one corner, coloured vats in the middle, brown tannin vats at the edges
     for (const v of V) {
@@ -347,12 +349,12 @@ export default {
           vec2 q = vW.xz * .21;
           float a = texture2D(uMarble, q + vec2(uTime * .006, uTime * .004)).r;
           float b = texture2D(uMarble, q * .53 + vec2(-uTime * .004, uTime * .005) + a * .06).r;
-          float m = .72 + .56 * (a * .6 + b * .4);
+          float m = .45 + 1.1 * (a * .6 + b * .4);
           float edge = smoothstep(.6, 1., length(vL));
           vec3 col = vC * m * (1. - .3 * edge);
           vec3 V = normalize(cameraPosition - vW);
           float fr = pow(1. - clamp(V.y, 0., 1.), 5.);
-          col = mix(col, uSky, fr * .2);
+          col = mix(col, uSky, fr * .32);
           vec3 H = normalize(V + uSunDir);
           col += uSunCol * min(.8, pow(max(H.y, 0.), 260.) * (.5 + .9 * a));
           gl_FragColor = vec4(fxApplyFog(col), 1.);
@@ -377,7 +379,7 @@ export default {
     {
       const X0 = -25, X1 = 25, Z0 = -51, Z1 = 52, CS = 0.3, nx = Math.round((X1 - X0) / CS), nz = Math.round((Z1 - Z0) / CS);
       const pos = new Float32Array((nx + 1) * (nz + 1) * 3), colA = new Float32Array((nx + 1) * (nz + 1) * 3), uvA = new Float32Array((nx + 1) * (nz + 1) * 2), dA = new Float32Array((nx + 1) * (nz + 1));
-      const base = new THREE.Color('#f0e6d2'), wet = new THREE.Color('#a49480'), crust = new THREE.Color('#f4f0e6'), cc = new THREE.Color();
+      const base = new THREE.Color('#fbf4e8'), wet = new THREE.Color('#b8aa94'), crust = new THREE.Color('#f4f0e6'), cc = new THREE.Color();
       for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) {
         let x = X0 + i * CS + (i > 0 && i < nx ? R.range(-0.06, 0.06) : 0), z = Z0 + j * CS + (j > 0 && j < nz ? R.range(-0.06, 0.06) : 0);
         let { v, d } = nearest(x, z);
@@ -388,7 +390,7 @@ export default {
         const dl = v ? d - v.r * (LIP - 1.05) : d - 0.6;   // metres from the lip's outer edge
         const n1 = Math.sin(x * 0.9 + z * 0.4) * Math.sin(z * 0.7 - x * 0.3), n2 = Math.sin(x * 2.3 - z * 1.9) * 0.5;
         const k = (j * (nx + 1) + i);
-        pos[k * 3] = x; pos[k * 3 + 1] = 0.02 + 0.06 * smoothstep(0, 0.45, dl) + 0.012 * n2; pos[k * 3 + 2] = z; dA[k] = d;
+        pos[k * 3] = x; pos[k * 3 + 1] = 0.07 + 0.065 * smoothstep(0, 0.3, dl) + 0.01 * n2; pos[k * 3 + 2] = z; dA[k] = d;
         uvA[k * 2] = x / 1.4; uvA[k * 2 + 1] = z / 1.4;
         // wet stone, darker in the middle of each ridge; stained toward the dye of the vat beside it; lime crust by the lime vats
         const mid = smoothstep(0.05, 0.4, dl) * (1 - smoothstep(0.9, 2.2, dl)), wetN = 0.5 + 0.5 * n1;
@@ -407,7 +409,7 @@ export default {
       }
       const g = own(new THREE.BufferGeometry()); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(colA, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uvA, 2));
       g.setIndex(idx); g.computeVertexNormals();
-      const ridge = new THREE.Mesh(g, own(new THREE.MeshLambertMaterial({ map: stoneT, vertexColors: true }))); scene.add(ridge);
+      const ridge = new THREE.Mesh(g, own(new THREE.MeshPhongMaterial({ map: stoneT, vertexColors: true, specular: '#5a5048', shininess: 38 }))); scene.add(ridge);
     }
     await tick();
 
@@ -418,7 +420,7 @@ export default {
     };
     {
       // hides draped over the vat walls: bent over the lip, hanging inside, sagging, the corners curled
-      const prof = [[-0.1, -0.42], [-0.085, -0.15], [-0.06, 0.06], [-0.02, 0.15], [0.05, 0.17], [0.13, 0.13], [0.24, 0.07], [0.42, 0.055]];
+      const prof = [[-0.1, -0.42], [-0.085, -0.15], [-0.06, 0.06], [-0.02, 0.15], [0.05, 0.17], [0.13, 0.17], [0.24, 0.15], [0.42, 0.145]];
       const mkDrape = (w, curl) => { const nzp = 7, pos = [], idx = []; for (let s = 0; s < prof.length; s++) for (let q = 0; q <= nzp; q++) { const zq = (q / nzp - 0.5) * w, e = Math.abs(zq) / (w / 2); pos.push(prof[s][0] + (s >= 6 ? 0.06 * e * e : 0), prof[s][1] - 0.035 * Math.cos(e * 1.57) * (s < 3 ? 0 : 1) + curl * Math.pow(e, 4) * (s === 0 || s === prof.length - 1 ? 1 : 0.3), zq * (s < 2 ? 0.9 + 0.1 * Math.sin(q) : 1)); }
         for (let s = 0; s < prof.length - 1; s++) for (let q = 0; q < nzp; q++) { const a = s * (nzp + 1) + q, b = a + nzp + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
         const g = own(new THREE.BufferGeometry()); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g; };
@@ -435,34 +437,34 @@ export default {
       finish(padM);
       // buckets: wooden and plastic, single and stacked
       const buckG = own(new THREE.CylinderGeometry(0.2, 0.16, 0.34, 10, 1, true)); buckG.translate(0, 0.17, 0);
-      const bucks = []; for (let i = 0; i < 110; i++) { const s = ridgeSpot(0.12, 3, 1.3); if (!s) continue; const n = R() < 0.3 ? R.int(2, 3) : 1, plastic = R() < 0.45, c = plastic ? R.pick(['#2f6fd0', '#d84a3a', '#3aa86a', '#e8c040', '#e6e2da']) : R.pick(['#6a4a2e', '#7a5636', '#5a3c24']); for (let k = 0; k < n; k++) bucks.push({ x: s.x, z: s.z, y: 0.05 + k * 0.1, s: 1 - k * 0.03, c, rot: R.range(0, 6.28) }); }
+      const bucks = []; for (let i = 0; i < 110; i++) { const s = ridgeSpot(0.12, 3, 1.3); if (!s) continue; const n = R() < 0.3 ? R.int(2, 3) : 1, plastic = R() < 0.45, c = plastic ? R.pick(['#2f6fd0', '#d84a3a', '#3aa86a', '#e8c040', '#e6e2da']) : R.pick(['#6a4a2e', '#7a5636', '#5a3c24']); for (let k = 0; k < n; k++) bucks.push({ x: s.x, z: s.z, y: 0.13 + k * 0.1, s: 1 - k * 0.03, c, rot: R.range(0, 6.28) }); }
       const buckM = instanced(buckG, own(new THREE.MeshLambertMaterial({ color: '#ffffff', side: THREE.DoubleSide })), bucks.length);
       bucks.forEach((b, i) => { _q.setFromAxisAngle(_y, b.rot); buckM.setMatrixAt(i, _m.compose(_p.set(b.x, b.y, b.z), _q, _s.setScalar(b.s))); buckM.setColorAt(i, _c.set(b.c)); }); finish(buckM);
       // coiled hoses, stained rags, sacks of pigment
       const hoseG = own(new THREE.TorusGeometry(0.32, 0.025, 5, 22)); hoseG.rotateX(Math.PI / 2);
-      const hoses = []; for (let i = 0; i < 26; i++) { const s = ridgeSpot(0.2, 3, 1.5); if (s) for (let k = 0; k < 4; k++) hoses.push({ x: s.x, z: s.z, y: 0.08 + k * 0.045, s: 1 - k * 0.12 }); }
+      const hoses = []; for (let i = 0; i < 26; i++) { const s = ridgeSpot(0.2, 3, 1.5); if (s) for (let k = 0; k < 4; k++) hoses.push({ x: s.x, z: s.z, y: 0.16 + k * 0.045, s: 1 - k * 0.12 }); }
       const hoseM = instanced(hoseG, own(new THREE.MeshLambertMaterial({ color: '#2a2a2a' })), hoses.length);
       hoses.forEach((h, i) => { _q.setFromEuler(_e.set(R.range(-0.08, 0.08), R.range(0, 6), 0)); hoseM.setMatrixAt(i, _m.compose(_p.set(h.x + R.range(-0.03, 0.03), h.y, h.z), _q, _s.setScalar(h.s))); }); finish(hoseM);
-      const sackG = own(new THREE.SphereGeometry(0.3, 9, 6)); sackG.scale(1, 0.7, 0.8); sackG.translate(0, 0.16, 0);
-      const sacks = []; for (let i = 0; i < 40; i++) { const s = ridgeSpot(0.3, 4, 1.6); if (s) sacks.push(s); }
+      const sackG = own(new THREE.SphereGeometry(0.3, 9, 6)); sackG.scale(1, 0.42, 0.75); sackG.translate(0, 0.1, 0);
+      const sacks = []; for (let i = 0; i < 24; i++) { const s = ridgeSpot(0.3, 4, 3.5); if (s) sacks.push(s); }
       const sackM = instanced(sackG, own(new THREE.MeshLambertMaterial({ color: '#ffffff' })), sacks.length);
-      sacks.forEach((s, i) => { _q.setFromEuler(_e.set(0, R.range(0, 6), R.range(-0.1, 0.1))); sackM.setMatrixAt(i, _m.compose(_p.set(s.x, 0.04, s.z), _q, _s.setScalar(R.range(0.8, 1.2)))); sackM.setColorAt(i, _c.set(R.pick(['#c8b48c', '#b89a6a', '#d0bc98'])).lerp(new THREE.Color(R.pick(DYES)), 0.3)); }); finish(sackM);
+      sacks.forEach((s, i) => { _q.setFromEuler(_e.set(0, R.range(0, 6), R.range(-0.1, 0.1))); sackM.setMatrixAt(i, _m.compose(_p.set(s.x, 0.1, s.z), _q, _s.setScalar(R.range(0.8, 1.2)))); sackM.setColorAt(i, _c.set(R.pick(['#c8b48c', '#b89a6a', '#d0bc98'])).lerp(new THREE.Color(R.pick(DYES)), 0.3)); }); finish(sackM);
       const ragG = own(new THREE.PlaneGeometry(0.5, 0.36, 3, 2)); ragG.rotateX(-Math.PI / 2); { const p = ragG.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, R.range(0, 0.035)); ragG.computeVertexNormals(); }
       const rags = []; for (let i = 0; i < 70; i++) { const s = ridgeSpot(0.05, 2, 1.0); if (s) rags.push(s); }
       const ragM = instanced(ragG, own(new THREE.MeshLambertMaterial({ color: '#ffffff', side: THREE.DoubleSide })), rags.length);
-      rags.forEach((s, i) => { _q.setFromAxisAngle(_y, R.range(0, 6.28)); ragM.setMatrixAt(i, _m.compose(_p.set(s.x, 0.075, s.z), _q, _s.setScalar(R.range(0.7, 1.3)))); ragM.setColorAt(i, _c.set(R.pick(DYES)).lerp(WHITE, 0.15)); }); finish(ragM);
+      rags.forEach((s, i) => { _q.setFromAxisAngle(_y, R.range(0, 6.28)); ragM.setMatrixAt(i, _m.compose(_p.set(s.x, 0.15, s.z), _q, _s.setScalar(R.range(0.7, 1.3)))); ragM.setColorAt(i, _c.set(R.pick(DYES)).lerp(WHITE, 0.15)); }); finish(ragM);
       // dyed footprints along the walkway and puddles of dye on the ridges
       const decalM = own(new THREE.MeshBasicMaterial({ map: crispT, color: '#ffffff', transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
       const footG = own(new THREE.CircleGeometry(0.5, 10)); footG.rotateX(-Math.PI / 2);
       const prints = []; for (let d = 6; d < 80; d += 0.62) { path.posAtDist(d, _a); path.tangentAtDist(d, _tg); _tg.y = 0; _tg.normalize(); const k = Math.round(d / 0.62) % 2 ? 1 : -1, wob = 0.5 * Math.sin(d * 0.21); const x = _a.x - _tg.z * (wob + k * 0.13), z = _a.z + _tg.x * (wob + k * 0.13); if (nearest(x, z).d < 0.3) continue; prints.push({ x, z, a: Math.atan2(_tg.x, _tg.z), c: d < 30 ? DYE.indigo : d < 55 ? DYE.saffron : DYE.henna }); }
       const pr = instanced(footG, decalM, 0); prints.length = 0;
       prints.forEach((f, i) => { _q.setFromAxisAngle(_y, f.a); pr.setMatrixAt(i, _m.compose(_p.set(f.x, 0.085, f.z), _q, _s.set(0.09, 1, 0.22))); pr.setColorAt(i, _c.set(f.c).multiplyScalar(0.7)); }); finish(pr);
-      const puds = []; for (let i = 0; i < 60; i++) { const s = ridgeSpot(0.1, 3, 1.6); if (s) puds.push(s); }
+      const puds = []; for (let i = 0; i < 140; i++) { const s = ridgeSpot(0.1, 3, 0.6); if (s) puds.push(s); }
       const pu = instanced(footG, decalM, puds.length);
-      puds.forEach((s, i) => { _q.setFromAxisAngle(_y, R.range(0, 6.28)); pu.setMatrixAt(i, _m.compose(_p.set(s.x, 0.084, s.z), _q, _s.set(R.range(0.25, 0.6), 1, R.range(0.18, 0.4)))); pu.setColorAt(i, _c.copy(s.v ? s.v.col : new THREE.Color(DYE.indigo)).lerp(new THREE.Color('#bcd0e6'), 0.25)); }); finish(pu);
+      puds.forEach((s, i) => { _q.setFromAxisAngle(_y, R.range(0, 6.28)); pu.setMatrixAt(i, _m.compose(_p.set(s.x, 0.15, s.z), _q, _s.set(R.range(0.25, 0.6), 1, R.range(0.18, 0.4)))); pu.setColorAt(i, _c.copy(s.v ? s.v.col : new THREE.Color(DYE.indigo)).lerp(new THREE.Color('#bcd0e6'), 0.25)); }); finish(pu);
       // the broken partition between the henna vat and the brown vat beside it: a crack and a channel the dye runs through
       for (const v of V) if (v.broken) { const n = v.broken, dx = n.x - v.x, dz = n.z - v.z, d = Math.hypot(dx, dz);
-        const ch = new THREE.Mesh(own(new THREE.PlaneGeometry(0.34, Math.max(0.4, d - (v.r + n.r) * 0.9))), own(new THREE.MeshLambertMaterial({ color: '#4a3020' }))); ch.rotation.set(-Math.PI / 2, 0, -Math.atan2(dx, dz)); ch.position.set((v.x + n.x) / 2, 0.088, (v.z + n.z) / 2); scene.add(ch); v.channel = ch; }
+        const ch = new THREE.Mesh(own(new THREE.PlaneGeometry(0.34, Math.max(0.4, d - (v.r + n.r) * 0.9))), own(new THREE.MeshLambertMaterial({ color: '#4a3020' }))); ch.rotation.set(-Math.PI / 2, 0, -Math.atan2(dx, dz)); ch.position.set((v.x + n.x) / 2, 0.15, (v.z + n.z) / 2); scene.add(ch); v.channel = ch; }
     }
     await tick();
 
@@ -483,7 +485,7 @@ export default {
       scene.add(new THREE.Mesh(botG, own(new THREE.MeshBasicMaterial({ map: pitFloorT, color: '#b8c8f0' }))));
       const sG = own(new THREE.CircleGeometry(1, 72)); sG.rotateX(-Math.PI / 2);
       hvSurf = instanced(sG, liqMat, 1); hvSurf.setMatrixAt(0, _m.compose(_p.set(HV.x, HV.surf, HV.z), _q.identity(), _s.set(HV.r, 1, HV.r))); hvSurf.setColorAt(0, _c.set(DYE.indigo)); finish(hvSurf);
-      const ceil = new THREE.Mesh(own(new THREE.CircleGeometry(HV.r, 56)), own(new THREE.MeshBasicMaterial({ map: ceilT, color: '#ffffff', side: THREE.DoubleSide, transparent: true, opacity: 0.8, depthWrite: false })));
+      const ceil = new THREE.Mesh(own(new THREE.CircleGeometry(HV.r, 56)), own(new THREE.MeshBasicMaterial({ map: ceilT, color: '#ffffff', side: THREE.DoubleSide, transparent: true, opacity: 0.94, depthWrite: false })));
       ceil.rotation.x = Math.PI / 2; ceil.position.set(HV.x, HV.surf - 0.02, HV.z); uw.add(ceil);
     }
     await tick();
@@ -675,13 +677,13 @@ export default {
     const light = { sunDir: SUN_DIR.toArray(), sunColor: '#ffd9a8', sunIntensity: 1.5, sky: '#9db8d8', skyIntensity: 1.0, ground: '#c9a070', groundIntensity: 0.85 };
     const fauna = F.makeFauna(scene, { light });
     const clearOf = (from, to) => ({ path, dist: 2, each: true, up: true, from, to, step: 2 });
-    const glaze = { body: '#3a3444', belly: '#6a6272', wingC: '#342f3e', tip: '#26222e', trail: '#4a4456', head: '#2e2a36', tailC: '#2e2a36', beak: '#111111' };
-    fauna.add(await F.makeFlockAsync({ rng: R.fork('swifts'), species: 'swifts', count: 30, size: 1.6, light, center: [6, 40, -10], radius: 48, height: 6, spread: [40, 12, 40], wander: [2, 1.2, 2, 0.7], maxSigma: 3, keepClear: clearOf(0, 1), ...glaze }, ctx.yield));
+    const glaze = { body: '#8a7a6c', belly: '#b4a494', wingC: '#7c6e62', tip: '#5a4e46', trail: '#8a7c70', head: '#7a6c60', tailC: '#6e6258', beak: '#222222' };
+    fauna.add(await F.makeFlockAsync({ rng: R.fork('swifts'), species: 'swifts', count: 14, size: 1.6, light, center: [6, 58, -30], radius: 48, height: 6, spread: [40, 12, 40], wander: [2, 1.2, 2, 0.7], maxSigma: 3, keepClear: clearOf(0, 1), ...glaze }, ctx.yield));
     await tick();
     const slate = { body: '#8a909c', belly: '#a6aab4', wingC: '#7c828e', tip: '#3a3e48', trail: '#6a707c', head: '#6a6f7c', tailC: '#5a5e68', beak: '#d8b090' };
-    fauna.add(await F.makeFlockAsync({ rng: R.fork('pigeons-burst'), species: 'crows', count: 26, size: 0.7, light, spread: [16, 6, 16], wander: [0.8, 0.5, 0.8, 0.4], maxSigma: 3, keepClear: clearOf(0, 1), ...slate, cross: { path, u: 10.5 / DUR, lead: 18, height: 8, angle: 64, side: 1, span: 80, rise: 14, duration: DUR } }, ctx.yield));
+    fauna.add(await F.makeFlockAsync({ rng: R.fork('pigeons-burst'), species: 'crows', count: 14, size: 0.7, light, spread: [16, 6, 16], wander: [0.8, 0.5, 0.8, 0.4], maxSigma: 3, keepClear: clearOf(0, 1), ...slate, cross: { path, u: 10.5 / DUR, lead: 18, height: 8, angle: 64, side: 1, span: 80, rise: 14, duration: DUR } }, ctx.yield));
     await tick();
-    for (const [x, y, z, r] of [[34, 19, -14, 12], [-36, 18, 14, 14], [60, 30, -70, 18]]) { fauna.add(await F.makeFlockAsync({ rng: R.fork('pigeons' + x), species: 'crows', count: 16, size: 0.7, light, center: [x, y, z], radius: r, height: 3, spread: [12, 4, 12], wander: [0.8, 0.5, 0.8, 0.4], maxSigma: 3, keepClear: clearOf(0, 1), ...slate }, ctx.yield)); await tick(); }
+    for (const [x, y, z, r] of [[34, 19, -14, 12], [60, 30, -70, 18]]) { fauna.add(await F.makeFlockAsync({ rng: R.fork('pigeons' + x), species: 'crows', count: 8, size: 0.7, light, center: [x, y, z], radius: r, height: 3, spread: [12, 4, 12], wander: [0.8, 0.5, 0.8, 0.4], maxSigma: 3, keepClear: clearOf(0, 1), ...slate }, ctx.yield)); await tick(); }
 
     // ---------- the swallows: a cambered barn-swallow mesh, lit, its colour painted per vertex each frame ----------
     // built once with marker colours (red = back, black = belly, green = bill) so each vertex knows what part of the bird it is
@@ -701,13 +703,13 @@ export default {
         nat[i * 3] = c.r; nat[i * 3 + 1] = c.g; nat[i * 3 + 2] = c.b;
       }
     }
-    const BIRD_SCALE = 1.85, NB = 8, WRIST = SW.span * 0.46, SX0 = 0.5 * SW.girth;
+    const BIRD_SCALE = 2.2, NB = 8, WRIST = SW.span * 0.46, SX0 = 0.5 * SW.girth;
     const birds = [];
     for (let i = 0; i < NB; i++) {
       const g = birdBase.clone(); own(g); g.setAttribute('color', new THREE.BufferAttribute(nat.slice(), 3)); g.attributes.position.setUsage(THREE.DynamicDrawUsage); g.attributes.normal.setUsage(THREE.DynamicDrawUsage);
       const mat = own(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, emissive: new THREE.Color('#3a5aa8').multiplyScalar(0.22) }));
       const mesh = new THREE.Mesh(g, mat); mesh.scale.setScalar(BIRD_SCALE); mesh.frustumCulled = false; mesh.rotation.order = 'YXZ'; scene.add(mesh);
-      birds.push({ mesh, g, mat, nat: 1, dye: new THREE.Color('#3a5aa8'), target: null, ph: R.range(0, 6.28), amp: 0.4, dih: 0.1, fan: 0, lead: [9, 11.5, 7.5, 13, 10, 8.5, 12, 14][i], lat: [-3.5, 3, 4.5, -4.8, -1.5, 2, -5.5, 5.2][i], hgt: [1.6, 2.4, 3.2, 1.9, 2.8, 3.6, 2.2, 3.0][i], dips: events.filter((e) => e.bird === i) });
+      birds.push({ mesh, g, mat, nat: 1, dye: new THREE.Color('#3a5aa8'), target: null, ph: R.range(0, 6.28), amp: 0.4, dih: 0.1, fan: 0, lead: [6, 7.5, 5.5, 8, 6.5, 7, 7.5, 8][i], lat: [-2.6, 2.4, 3.0, -3.2, -1.6, 2, -3.4, 3.2][i], hgt: [1.6, 2.4, 3.2, 1.9, 2.8, 3.6, 2.2, 3.0][i], dips: events.filter((e) => e.bird === i) });
     }
     const basePos = bPos.array.slice(), baseNrm = birdBase.attributes.normal.array.slice();
     const _cr = new THREE.Vector3(), _d = new THREE.Vector3(), _p1 = new THREE.Vector3(), _p2 = new THREE.Vector3(), _p3 = new THREE.Vector3();
@@ -719,7 +721,7 @@ export default {
     };
     const swallowPos = (b, i, T, tc, out) => {
       // the cruise: ahead of the camera, weaving in quick bursts, on the clock so they fly in the portal preview too
-      const lead = b.lead + 2.2 * Math.sin(tc * 0.7 + i * 1.3) + 0.8 * Math.sin(tc * 1.9 + i);
+      const lead = b.lead + 1.2 * Math.sin(tc * 0.7 + i * 1.3) + 0.5 * Math.sin(tc * 1.9 + i);
       const lat = b.lat + 1.6 * Math.sin(tc * 0.8 + i * 2.1) + 0.6 * Math.sin(tc * 2.3 + i * 1.7);
       frameAt(T, lead, lat, out);
       const done = b.dips.length && T > b.dips[b.dips.length - 1].t && b.dips[b.dips.length - 1].pit;
@@ -750,7 +752,7 @@ export default {
       let bleed = null;
       if (e.bleed) { const n = e.bleed, bg = new THREE.Mesh(bloomG, own(new THREE.MeshBasicMaterial({ map: bloomT, color: new THREE.Color(DYE.henna).lerp(new THREE.Color(DYE.poppy), 0.35), transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })));
         bg.position.set(n.x, n.level + 0.014, n.z); scene.add(bg); bleed = { m: bg, r: n.r, ch: e.vat.channel }; }
-      scene.add(g); return { e, g, rings, bloom, crown, col, bleed, maxR: Math.min(e.r * 0.92, e.pit ? 3.4 : 2), spin: R.range(-0.25, 0.25) };
+      scene.add(g); return { e, g, rings, bloom, crown, col, bleed, maxR: Math.min(e.r * (e.t < 3.5 ? 1.25 : 0.92), e.pit ? 3.4 : 2), spin: R.range(-0.25, 0.25) };
     });
     // drops: small lit spheres in the dye, thrown by each dip and trailed by the freshly dyed bird
     const DROPS_PER = 12, TRAIL = 4, dropV = events.map(() => Array.from({ length: DROPS_PER }, () => { const a = R.range(0, 6.28), s = R.range(0.5, 1.6); return [Math.cos(a) * s, R.range(1.8, 3.4), Math.sin(a) * s, R.range(0.6, 1.2)]; }));
@@ -760,10 +762,12 @@ export default {
     await tick();
 
     // ---------- under the surface: marbled curtains, pigment clouds, pale hides drifting, bubbles, the last swallow's shadow ----------
+    const featherC = mkCanvas(64); { const g = featherC.getContext('2d'); for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) { const ex = Math.min(x, 63 - x) / 20, ey = Math.min(y, 63 - y) / 22, v = Math.round(255 * Math.min(1, ex) * Math.min(1, ey) * Math.min(1, ex) * Math.min(1, ey)); g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(x, y, 1, 1); } }
+    const featherT = own(new THREE.CanvasTexture(featherC));
     const curtains = [];
     for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * 6.2832 + R.range(-0.3, 0.3), r = R.range(5.2, 8.0), g = own(new THREE.PlaneGeometry(R.range(2.5, 4.5), 7.4, 10, 8));
-      const m = new THREE.Mesh(g, own(new THREE.MeshBasicMaterial({ map: curtainT, color: new THREE.Color(R.pick(['#ffd890', '#ffb8a0', '#b8ffe0', '#ffc8e0', '#c8d8ff'])), transparent: true, opacity: 0.38, side: THREE.DoubleSide, depthWrite: false })));
+      const a = (i / 6) * 6.2832 + R.range(-0.3, 0.3), r = R.range(6.5, 10.0), g = own(new THREE.PlaneGeometry(R.range(2.5, 4.5), 9, 10, 8));
+      const m = new THREE.Mesh(g, own(new THREE.MeshBasicMaterial({ map: curtainT, alphaMap: featherT, color: new THREE.Color(R.pick(['#ffd890', '#ffb8a0', '#b8ffe0', '#ffc8e0', '#c8d8ff'])), transparent: true, opacity: 0.42, side: THREE.DoubleSide, depthWrite: false })));
       m.position.set(HV.x + Math.cos(a) * r, (HV.surf + HV.bottom) / 2 - 0.2, HV.z + Math.sin(a) * r); m.rotation.y = -a + Math.PI / 2 + R.range(-0.4, 0.4);
       uw.add(m); curtains.push({ m, g, base: g.attributes.position.array.slice(), ph: R.range(0, 6.28) });
     }
@@ -792,11 +796,11 @@ export default {
       camera: { fov: 64, near: 0.3, nearThrough: 0.5, far: 3000, lookAhead: 10, sway: 0.4, bank: 0.35 },
       pois: [
         { at: [-24, 6.5, 19], from: 3.8 / DUR, to: 6.0 / DUR, weight: 0.55, fade: 0.35 },   // the tannery wall, its balconies and hides
-        { at: [70, 30, -60], from: 8.5 / DUR, to: 10.9 / DUR, weight: 0.5, fade: 0.35 },    // the skyline of Fez el-Bali and its minarets
+        { at: [90, 45, -120], from: 8.5 / DUR, to: 11.0 / DUR, weight: 0.8, fade: 0.35 },    // the skyline of Fez el-Bali and its minarets
         { at: [30, 15, -16], from: 10.5 / DUR, to: 12.2 / DUR, weight: 0.4, fade: 0.4 },    // the pigeons' roof
         { at: [HV.x, HV.surf, HV.z - 2], from: 14.5 / DUR, to: 16.5 / DUR, weight: 0.7, fade: 0.35 },   // down onto the indigo
       ],
-      portal: { shape: 'circle', style: 'ring', radius: 3.4, color: '#ffcf8a', veil: '#ffcf8a', glow: 0.45, halo: true, revealDistance: 700 },
+      portal: { shape: 'circle', style: 'ring', radius: 1.6, color: '#ffcf8a', glow: 0.3, halo: true, revealDistance: 700 },
       post: { exposure: 0.85, bloom: { strength: 0.3, radius: 0.45, threshold: 0.95 }, grade: { saturation: 1.06, contrast: 1.05, tint: '#fff4e6', shadowTint: '#3a3048', vignette: 0.2, grain: 0, aberration: 0 } },
       update(dt, t, camera, u) {
         const T = clamp((u || 0) * DUR, 0, DUR);   // seconds of flight; the clock t also runs while the world is only a preview in a portal
@@ -847,15 +851,15 @@ export default {
           const C = b.g.attributes.color.array, n0 = b.nat, dr = b.dye.r, dg = b.dye.g, db = b.dye.b;
           for (let v = 0; v < BN; v++) { const j = v * 3; if (bill[v]) continue; const tn = tone[v]; C[j] = nat[j] * n0 + dr * tn * (1 - n0); C[j + 1] = nat[j + 1] * n0 + dg * tn * (1 - n0); C[j + 2] = nat[j + 2] * n0 + db * tn * (1 - n0); }
           b.g.attributes.color.needsUpdate = true;
-          b.mat.emissive.set('#3a5aa8').lerp(b.dye, 1 - n0).multiplyScalar(0.22);
+          b.mat.emissive.set('#3a5aa8').lerp(b.dye, 1 - n0).multiplyScalar(0.3);
         }
         // ----- the splashes
         let nd = 0;
         fxs.forEach((f, fi) => {
           const e = f.e, tau = T - e.t;
           if (tau < 0 || tau > 6.5) { f.g.visible = false; if (f.bleed) f.bleed.m.material.opacity = 0; return; } f.g.visible = true;
-          f.rings.forEach((m, k) => { const tk = tau - 0.22 * k; if (tk <= 0 || tk > 2.2) { m.material.opacity = 0; return; } const s = Math.min(f.maxR, 0.1 + (e.pit ? 1.5 : 0.85) * tk); m.scale.set(s, 1, s); m.material.opacity = 0.6 * (1 - tk / 2.2); });
-          { const s = tau < 0.3 ? 0.5 + 2.2 * (tau / 0.3) : 2.7; f.crown.scale.set(s * (e.pit ? 1.4 : 1), s * (1 - 0.5 * smoothstep(0.2, 0.32, tau)), s * (e.pit ? 1.4 : 1)); f.crown.material.opacity = 0.95 * (1 - smoothstep(0.18, 0.32, tau)); }
+          const rl = e.t < 3.5 ? 3.4 : 2.2; f.rings.forEach((m, k) => { const tk = tau - 0.22 * k; if (tk <= 0 || tk > rl) { m.material.opacity = 0; return; } const s = Math.min(f.maxR, 0.1 + (e.pit ? 1.5 : 0.85) * tk); m.scale.set(s, 1, s); m.material.opacity = (e.t < 3.5 ? 0.85 : 0.6) * (1 - tk / rl); });
+          { const s = tau < 0.3 ? 0.5 + 2.2 * (tau / 0.3) : 2.7; f.crown.scale.set(s * (e.pit ? 1.4 : 1), s * (1 - 0.5 * smoothstep(0.2, 0.32, tau)), s * (e.pit ? 1.4 : 1)); f.crown.material.opacity = 0.95 * (1 - smoothstep(e.t < 3.5 ? 0.35 : 0.18, e.t < 3.5 ? 0.55 : 0.32, tau)); }
           { const rise = Math.sin(Math.min(1, tau / 0.35) * Math.PI * 0.5), fall = 1 - smoothstep(0.45, 1.0, tau), h = Math.max(0.01, (e.pit ? 1.3 : 0.8) * rise * fall); f.col.scale.set(e.pit ? 1.4 : 1, h, e.pit ? 1.4 : 1); f.col.material.opacity = 0.55 * fall; }
           { const grow = sm(Math.min(1, tau / 1.4)), bs = 0.2 + (f.maxR * 0.95 - 0.2) * grow; f.bloom.scale.set(bs, 1, bs); f.bloom.rotation.y = f.spin * tau; f.bloom.material.opacity = 0.62 * Math.min(1, tau / 0.35) * (1 - smoothstep(1.4, 5.4, tau)); }
           if (f.bleed) { const tb = tau - 0.7, gr = sm(clamp(tb / 2.6, 0, 1)), s = 0.3 + f.bleed.r * 0.9 * gr; f.bleed.m.scale.set(s, 1, s); f.bleed.m.rotation.y = 0.2 * tb; f.bleed.m.material.opacity = tb > 0 ? 0.7 * Math.min(1, tb / 0.6) * (1 - smoothstep(4.5, 6.5, tau)) : 0;
